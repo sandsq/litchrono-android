@@ -1,6 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+>
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
@@ -13,10 +15,9 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Litchrono">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
+        android:theme="@style/Theme.Litchrono"
+    >
+        <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -26,19 +27,22 @@
 
         <activity
             android:name=".SettingsActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+        />
 
-        <receiver
-            android:name=".QuoteWidget"
-            android:exported="true">
+        <receiver android:name=".QuoteWidget" android:exported="true">
             <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action
+                    android:name="android.appwidget.action.APPWIDGET_UPDATE"
+                />
                 <action android:name="com.example.litchrono.WIDGET_UPDATE" />
                 <action android:name="com.example.litchrono.WIDGET_SYNC" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
+                android:resource="@xml/widget_info"
+            />
         </receiver>
     </application>
 

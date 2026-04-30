@@ -309,13 +309,28 @@ class MainActivity : AppCompatActivity() {
             val boldColorRGB = "#" + timeColorHex.substring(0, 6)
             val mainColorRGB = "#" + textColorHex.substring(0, 6)
 
-            // Split text at <b> tags and apply colors to each section
-            val beforeBold = randomQuote.text.substringBefore("<b>")
-            val boldText = randomQuote.text.substringAfter("<b>").substringBefore("</b>")
-            val afterBold = randomQuote.text.substringAfter("</b>")
-
-            // Reconstruct with proper color wrapping
-            val quoteFinalColor = "<font color='$mainColorRGB'>$beforeBold</font><u><b><font color='$boldColorRGB'>$boldText</font></b></u><font color='$mainColorRGB'>$afterBold</font>"
+            // Process <b> tags (may be multiple). Build the output by wrapping each non-bold
+            // segment in the main color and each <b>...</b> in the bold/time color. This avoids
+            // wrapping the whole quote in a single <font> which can override nested colors.
+            val sb = StringBuilder()
+            val pattern = Regex("(?s)<b>(.*?)</b>")
+            val text = randomQuote.text
+            var lastIndex = 0
+            for (m in pattern.findAll(text)) {
+                val start = m.range.first
+                if (start > lastIndex) {
+                    val before = text.substring(lastIndex, start)
+                    sb.append("<font color='$mainColorRGB'>").append(before).append("</font>")
+                }
+                val inner = m.groupValues[1]
+                sb.append("<u><b><font color='$boldColorRGB'>").append(inner).append("</font></b></u>")
+                lastIndex = m.range.last + 1
+            }
+            if (lastIndex < text.length) {
+                val tail = text.substring(lastIndex)
+                sb.append("<font color='$mainColorRGB'>").append(tail).append("</font>")
+            }
+            val quoteFinalColor = sb.toString()
 
             // Convert HTML tags to formatted text and add attribution
             val displayText = "$quoteFinalColor<br><br><font color='$mainColorRGB'>${randomQuote.title} - ${randomQuote.author}</font>"

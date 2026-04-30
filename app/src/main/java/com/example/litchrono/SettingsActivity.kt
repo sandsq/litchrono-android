@@ -32,9 +32,20 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
+
+        // Ensure the window will resize when the IME (keyboard) appears.
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+
+        // Apply system bar insets and also account for IME inset so the layout can shift up when
+        // the keyboard appears (some devices require manual handling via WindowInsets).
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.settings_main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            val imeBars = insets.getInsets(WindowInsetsCompat.Type.ime())
+            // Use the larger bottom inset between system bars (navigation) and IME so that
+            // when the keyboard is visible the bottom padding increases and the ScrollView
+            // content is pushed up above the keyboard.
+            val bottomInset = kotlin.math.max(systemBars.bottom, imeBars.bottom)
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, bottomInset)
             insets
         }
 

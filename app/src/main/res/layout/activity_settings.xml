@@ -68,6 +68,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:layout_marginBottom="16dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
@@ -114,6 +115,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:layout_marginBottom="16dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
@@ -173,7 +175,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
                 android:layout_marginBottom="8dp"
-                android:text="Quote Text Color (RRGGBB)"
+                android:text="Quote Text Color (RRGGBBAA)"
                 android:textSize="14sp"
             />
 
@@ -181,6 +183,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:layout_marginBottom="16dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
@@ -191,7 +194,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:hint="ADEBB3"
+                    android:hint="adebb3ff"
                     android:inputType="text"
                 />
 
@@ -219,7 +222,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
                 android:layout_marginBottom="8dp"
-                android:text="Time Text Color (RRGGBB)"
+                android:text="Time Text Color (RRGGBBAA)"
                 android:textSize="14sp"
             />
 
@@ -227,6 +230,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:layout_marginBottom="24dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
@@ -237,7 +241,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:hint="f4d8cd"
+                    android:hint="f4d8cdff"
                     android:inputType="text"
                 />
 
