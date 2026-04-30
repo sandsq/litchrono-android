@@ -282,7 +282,7 @@ class MainActivity : AppCompatActivity() {
         timeTextView.text = Html.fromHtml(currentTime, Html.FROM_HTML_MODE_LEGACY)
         // Add margins to quote text
         val params = quoteTextView.layoutParams as android.view.ViewGroup.MarginLayoutParams
-        params.setMargins(24, 16, 24, 16)  // left, top, right, bottom
+        params.setMargins(100, 16, 100, 16)  // left, top, right, bottom
         quoteTextView.layoutParams = params
     }
 

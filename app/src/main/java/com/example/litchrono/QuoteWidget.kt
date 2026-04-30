@@ -17,6 +17,11 @@ import android.text.style.ForegroundColorSpan
 import android.widget.RemoteViews
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -26,6 +31,11 @@ class QuoteWidget : AppWidgetProvider() {
     companion object {
         private const val ACTION_UPDATE = "com.example.litchrono.WIDGET_UPDATE"
         private const val ACTION_SYNC = "com.example.litchrono.WIDGET_SYNC"
+        private const val LAST_FETCH_TIME_KEY = "last_fetch_time"
+        private const val LAST_WIDGET_FETCH_CHECK_TIME_KEY = "last_widget_fetch_check_time"
+        private const val ONE_DAY_MS = 24 * 60 * 60 * 1000L
+        private const val EMPTY_CACHE_RETRY_MS = 15 * 60 * 1000L
+        private const val QUOTES_BASE_URL = "https://raw.githubusercontent.com/sandsq/time_of_day_quotes/refs/heads/main/"
     }
 
     override fun onUpdate(
@@ -61,14 +71,86 @@ class QuoteWidget : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
-            ACTION_UPDATE -> {
-                updateWidget(context)
-                scheduleNextUpdate(context, syncToClock = false)
+            ACTION_UPDATE -> handleUpdate(context, syncToClock = false)
+            ACTION_SYNC -> handleUpdate(context, syncToClock = true)
+        }
+    }
+
+    private fun handleUpdate(context: Context, syncToClock: Boolean) {
+        val pendingResult = goAsync()
+        val appContext = context.applicationContext
+
+        try {
+            updateQuotesIfNeeded(appContext) {
+                try {
+                    updateWidget(appContext)
+                    scheduleNextUpdate(appContext, syncToClock)
+                } finally {
+                    pendingResult.finish()
+                }
             }
-            ACTION_SYNC -> {
-                updateWidget(context)
-                scheduleNextUpdate(context, syncToClock = true)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            updateWidget(appContext)
+            scheduleNextUpdate(appContext, syncToClock)
+            pendingResult.finish()
+        }
+    }
+
+    private fun updateQuotesIfNeeded(context: Context, onComplete: () -> Unit) {
+        val prefs = context.getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+        val cachedQuotesJson = prefs.getString(SettingsActivity.QUOTES_DATA_KEY, null)
+        val now = System.currentTimeMillis()
+        val lastSuccessfulFetch = prefs.getLong(LAST_FETCH_TIME_KEY, 0L)
+        val lastWidgetFetchCheck = prefs.getLong(LAST_WIDGET_FETCH_CHECK_TIME_KEY, 0L)
+        val hasCachedQuotes = !cachedQuotesJson.isNullOrBlank()
+        val needsFreshQuotes = !hasCachedQuotes || now - lastSuccessfulFetch > ONE_DAY_MS
+        val retryDelay = if (hasCachedQuotes) ONE_DAY_MS else EMPTY_CACHE_RETRY_MS
+
+        if (!needsFreshQuotes || now - lastWidgetFetchCheck < retryDelay) {
+            onComplete()
+            return
+        }
+
+        prefs.edit()
+            .putLong(LAST_WIDGET_FETCH_CHECK_TIME_KEY, now)
+            .apply()
+
+        val retrofit = Retrofit.Builder()
+            .baseUrl(QUOTES_BASE_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        val service = retrofit.create(QuoteApiService::class.java)
+        service.getQuotes().enqueue(object : Callback<Map<String, List<Quote>>> {
+            override fun onResponse(
+                call: Call<Map<String, List<Quote>>>,
+                response: Response<Map<String, List<Quote>>>
+            ) {
+                if (response.isSuccessful && response.body() != null) {
+                    saveQuotesToCache(context, response.body()!!)
+                }
+                onComplete()
             }
+
+            override fun onFailure(call: Call<Map<String, List<Quote>>>, t: Throwable) {
+                t.printStackTrace()
+                onComplete()
+            }
+        })
+    }
+
+    private fun saveQuotesToCache(context: Context, quotes: Map<String, List<Quote>>) {
+        try {
+            val prefs = context.getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+            val quotesJson = Gson().toJson(quotes)
+            prefs.edit().apply {
+                putString(SettingsActivity.QUOTES_DATA_KEY, quotesJson)
+                putLong(LAST_FETCH_TIME_KEY, System.currentTimeMillis())
+                apply()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -156,6 +238,7 @@ class QuoteWidget : AppWidgetProvider() {
             Color.blue(textColor)
         )
         views.setTextColor(R.id.widget_author, semitransparentTextColor)
+        views.setTextColor(R.id.widget_sync_button, textColor)
 
         // Apply the first configured background color (RemoteViews doesn't support gradients)
         views.setInt(R.id.main, "setBackgroundColor", bgLeftColor)
