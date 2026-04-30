@@ -28,7 +28,8 @@
             android:text="Loading quote..."
             android:textSize="14sp"
             android:textColor="@android:color/black"
-            android:gravity="center_vertical"
+            android:gravity="top|start"
+            android:includeFontPadding="false"
         />
 
         <TextView

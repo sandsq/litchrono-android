@@ -261,6 +261,7 @@ class QuoteWidget : AppWidgetProvider() {
 
         // Reconstruct with proper color wrapping
         val quoteWithColors = "<font color='$mainColorRGB'>$beforeBold</font><u><b><font color='$boldColorRGB'>$boldText</font></b></u><font color='$mainColorRGB'>$afterBold</font>"
+//        test hello what there other word to type random things to make it longer yeah idk wait my mouse battery is already low that's kinda surprising although I am using it more for gaming so maybe that's why"
 
         // Create the RemoteViews object
         val views = RemoteViews(context.packageName, R.layout.widget_quote)
@@ -280,21 +281,29 @@ class QuoteWidget : AppWidgetProvider() {
         val widthPx = (minWidthDp * density).toInt()
         val heightPx = (minHeightDp * density).toInt()
 
-        // Layout padding/margins (dp -> px)
-        val containerPaddingPx = (16 * density).toInt() // LinearLayout padding
-        val authorMarginTopPx = (12 * density).toInt()
+        // Layout padding/margins (dp -> px) — keep these in sync with widget_quote.xml
+        val paddingTopPx = (14 * density).toInt()
+        val paddingBottomPx = (0 * density).toInt()
+        val paddingHorizontalPx = (14 * density).toInt()
+        val authorMarginTopPx = 0 // author has no top margin in layout now
 
-        // Measure author height
+        // Measure author height (use same textSize as in XML: 12sp)
         val authorPaint = android.text.TextPaint().apply {
             isAntiAlias = true
             textSize = 12f * scaledDensity
         }
         val fm = authorPaint.fontMetrics
-        val authorHeightPx = (fm.bottom - fm.top).toInt()
+        val authorHeightPx = (fm.descent - fm.ascent).toInt()
+
+        // Determine widget height to use for measuring: prefer max height if launcher provides it
+        var useHeightDp = minHeightDp
+        val maxHeightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+        if (maxHeightDp > 0) useHeightDp = maxHeightDp
+        val useHeightPx = (useHeightDp * density).toInt()
 
         // Available space for the quote TextView
-        val availableWidth = (widthPx - containerPaddingPx * 2).coerceAtLeast(50)
-        val availableHeight = (heightPx - containerPaddingPx * 2 - authorMarginTopPx - authorHeightPx).coerceAtLeast(20)
+        val availableWidth = (widthPx - paddingHorizontalPx * 2).coerceAtLeast(50)
+        val availableHeight = (useHeightPx - paddingTopPx - paddingBottomPx - authorMarginTopPx - authorHeightPx).coerceAtLeast(20)
 
         // Prepare paint for quote text
         val quotePaint = android.text.TextPaint().apply {
