@@ -8,9 +8,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.graphics.LinearGradient
-import android.graphics.Shader
-import android.graphics.drawable.ShapeDrawable
+
 import android.os.Build
 import android.text.Html
 import android.text.SpannableString
@@ -90,16 +88,12 @@ class QuoteWidget : AppWidgetProvider() {
         // Load settings
         val prefs = context.getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
         val bgLeftColorHex = prefs.getString(SettingsActivity.KEY_BG_LEFT_COLOR, SettingsActivity.DEFAULT_BG_LEFT) ?: SettingsActivity.DEFAULT_BG_LEFT
-        val bgRightColorHex = prefs.getString(SettingsActivity.KEY_BG_RIGHT_COLOR, SettingsActivity.DEFAULT_BG_RIGHT) ?: SettingsActivity.DEFAULT_BG_RIGHT
-        val gradientAngleStr = prefs.getString(SettingsActivity.KEY_GRADIENT_ANGLE, SettingsActivity.DEFAULT_GRADIENT_ANGLE) ?: SettingsActivity.DEFAULT_GRADIENT_ANGLE
         val textColorHex = prefs.getString(SettingsActivity.KEY_TEXT_COLOR, SettingsActivity.DEFAULT_TEXT_COLOR) ?: SettingsActivity.DEFAULT_TEXT_COLOR
         val timeColorHex = prefs.getString(SettingsActivity.KEY_TIME_COLOR, SettingsActivity.DEFAULT_TIME_COLOR) ?: SettingsActivity.DEFAULT_TIME_COLOR
 
         // Convert hex to color integers
         val bgLeftColor = hexToColor(bgLeftColorHex)
-        val bgRightColor = hexToColor(bgRightColorHex)
         val textColor = hexToColor(textColorHex)
-        val gradientAngle = gradientAngleStr.toIntOrNull() ?: 0
 
         // Load cached quotes
         val cachedQuotesJson = prefs.getString(SettingsActivity.QUOTES_DATA_KEY, null)
@@ -157,32 +151,8 @@ class QuoteWidget : AppWidgetProvider() {
         )
         views.setTextColor(R.id.widget_author, semitransparentTextColor)
 
-        // Apply gradient background
-        val angleRadians = Math.toRadians(gradientAngle.toDouble())
-        val width = 300  // Approximate widget width
-        val height = 300  // Approximate widget height
-        val endX = width * Math.cos(angleRadians).toFloat()
-        val endY = height * Math.sin(angleRadians).toFloat()
-
-        val gradient = LinearGradient(
-            0f, 0f, endX, endY,
-            bgLeftColor, bgRightColor,
-            Shader.TileMode.CLAMP
-        )
-        val drawable = ShapeDrawable().apply {
-            paint.shader = gradient
-        }
-        // Note: RemoteViews has limited support for complex drawables,
-        // so we'll use setBackgroundColor as a fallback blend
-        // For true gradient support, we use the average of the two colors
-        val avgColor = Color.argb(
-            (Color.alpha(bgLeftColor) + Color.alpha(bgRightColor)) / 2,
-            (Color.red(bgLeftColor) + Color.red(bgRightColor)) / 2,
-            (Color.green(bgLeftColor) + Color.green(bgRightColor)) / 2,
-            (Color.blue(bgLeftColor) + Color.blue(bgRightColor)) / 2
-        )
-        // Apply average color as background (RemoteViews doesn't support gradients)
-        views.setInt(R.id.main, "setBackgroundColor", avgColor)
+        // Apply the first configured background color (RemoteViews doesn't support gradients)
+        views.setInt(R.id.main, "setBackgroundColor", bgLeftColor)
 
         // Update the widget
         appWidgetManager.updateAppWidget(appWidgetId, views)
