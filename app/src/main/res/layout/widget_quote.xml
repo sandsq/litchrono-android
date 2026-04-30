@@ -15,15 +15,17 @@
         android:gravity="top"
     >
 
+
         <TextView
             android:id="@+id/widget_quote"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
+            android:layout_marginEnd="4dp"
             android:text="Loading quote..."
             android:textSize="14sp"
             android:textColor="@android:color/black"
-            android:gravity="start"
+            android:gravity="center_vertical"
         />
 
         <TextView
@@ -52,6 +54,38 @@
         android:text="↻"
         android:textColor="@android:color/black"
         android:textSize="18sp"
+    />
+
+    <!-- Page up (visible only when quote spans multiple pages) -->
+    <TextView
+        android:id="@+id/widget_page_up"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="28dp"
+        android:layout_marginEnd="2dp"
+        android:contentDescription="Page up"
+        android:padding="3dp"
+        android:text="▲"
+        android:textColor="@android:color/black"
+        android:textSize="14sp"
+        android:visibility="gone"
+    />
+
+    <!-- Page down (visible only when quote spans multiple pages) -->
+    <TextView
+        android:id="@+id/widget_page_down"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginBottom="32dp"
+        android:layout_marginEnd="2dp"
+        android:contentDescription="Page down"
+        android:padding="3dp"
+        android:text="▼"
+        android:textColor="@android:color/black"
+        android:textSize="14sp"
+        android:visibility="gone"
     />
 
 </FrameLayout>
