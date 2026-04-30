@@ -25,6 +25,7 @@ import kotlin.random.Random
 class QuoteWidget : AppWidgetProvider() {
     companion object {
         private const val ACTION_UPDATE = "com.example.litchrono.WIDGET_UPDATE"
+        private const val ACTION_SYNC = "com.example.litchrono.WIDGET_SYNC"
     }
 
     override fun onUpdate(
@@ -34,7 +35,7 @@ class QuoteWidget : AppWidgetProvider() {
     ) {
         // Trigger immediate update
         val updateIntent = Intent(context, QuoteWidget::class.java).apply {
-            action = ACTION_UPDATE
+            action = ACTION_SYNC
         }
         context.sendBroadcast(updateIntent)
 
@@ -59,9 +60,15 @@ class QuoteWidget : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_UPDATE) {
-            updateWidget(context)
-            scheduleNextUpdate(context)
+        when (intent.action) {
+            ACTION_UPDATE -> {
+                updateWidget(context)
+                scheduleNextUpdate(context, syncToClock = false)
+            }
+            ACTION_SYNC -> {
+                updateWidget(context)
+                scheduleNextUpdate(context, syncToClock = true)
+            }
         }
     }
 
@@ -153,6 +160,17 @@ class QuoteWidget : AppWidgetProvider() {
         // Apply the first configured background color (RemoteViews doesn't support gradients)
         views.setInt(R.id.main, "setBackgroundColor", bgLeftColor)
 
+        val syncIntent = Intent(context, QuoteWidget::class.java).apply {
+            action = ACTION_SYNC
+        }
+        val syncPendingIntent = PendingIntent.getBroadcast(
+            context,
+            1,
+            syncIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.widget_sync_button, syncPendingIntent)
+
         // Update the widget
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
@@ -169,13 +187,24 @@ class QuoteWidget : AppWidgetProvider() {
         }
     }
 
-    private fun scheduleNextUpdate(context: Context) {
+    private fun scheduleNextUpdate(context: Context, syncToClock: Boolean) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        // Schedule the next refresh 60 seconds after this update instead of snapping
-        // to the next clock-minute boundary. This gives each quote a full minute
-        // of display time even if Android delivers an alarm a little late.
-        val nextUpdateTimeMillis = System.currentTimeMillis() + 60_000L
+        val now = System.currentTimeMillis()
+        val nextUpdateTimeMillis = if (syncToClock) {
+            // On first start or manual sync, line the next update up with the next
+            // real clock-minute boundary. After that alarm fires, updates continue
+            // every 60 seconds so each quote gets a full minute on screen.
+            val calendar = Calendar.getInstance().apply {
+                timeInMillis = now
+                add(Calendar.MINUTE, 1)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            calendar.timeInMillis
+        } else {
+            now + 60_000L
+        }
 
         val intent = Intent(context, QuoteWidget::class.java).apply {
             action = ACTION_UPDATE

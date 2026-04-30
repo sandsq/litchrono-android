@@ -129,7 +129,7 @@ class MainActivity : AppCompatActivity() {
     private fun requestWidgetUpdate() {
         sendBroadcast(
             Intent(this, QuoteWidget::class.java).apply {
-                action = "com.example.litchrono.WIDGET_UPDATE"
+                action = "com.example.litchrono.WIDGET_SYNC"
             }
         )
     }
