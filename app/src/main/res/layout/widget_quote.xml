@@ -12,19 +12,18 @@
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:padding="16dp"
-        android:gravity="center"
+        android:gravity="top"
     >
 
         <TextView
             android:id="@+id/widget_quote"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:text="Loading quote..."
             android:textSize="14sp"
             android:textColor="@android:color/black"
             android:gravity="start"
-            android:maxLines="10"
-            android:ellipsize="end"
         />
 
         <TextView
@@ -46,7 +45,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
-        android:layout_marginTop="-5dp"
+        android:layout_marginTop="-6dp"
         android:layout_marginEnd="2dp"
         android:contentDescription="Sync widget time"
         android:padding="1dp"
