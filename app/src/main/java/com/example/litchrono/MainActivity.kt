@@ -1,11 +1,15 @@
 package com.example.litchrono
 
+import android.app.AlarmManager
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Shader
 import android.graphics.drawable.PaintDrawable
 import android.graphics.drawable.ShapeDrawable
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -34,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     private val handler = Handler(Looper.getMainLooper())
     private var lastDisplayedMinute = -1
+    private var hasRequestedExactAlarmPermission = false
 
     companion object {
         private const val PREFS_NAME = "litchrono_prefs"
@@ -66,6 +71,8 @@ class MainActivity : AppCompatActivity() {
         // Apply custom settings after views are initialized
         applyCustomSettings()
 
+        requestExactAlarmPermissionIfNeeded()
+
         // Load cached quotes and check for updates
         loadQuotes()
 
@@ -79,6 +86,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         applyCustomSettings()
         updateTime()
+        requestWidgetUpdate()
         startTimeUpdates()
     }
 
@@ -94,6 +102,36 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(timeUpdateRunnable)
+    }
+
+    private fun requestExactAlarmPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || hasRequestedExactAlarmPermission) {
+            return
+        }
+
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        if (alarmManager.canScheduleExactAlarms()) {
+            return
+        }
+
+        hasRequestedExactAlarmPermission = true
+        try {
+            startActivity(
+                Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun requestWidgetUpdate() {
+        sendBroadcast(
+            Intent(this, QuoteWidget::class.java).apply {
+                action = "com.example.litchrono.WIDGET_UPDATE"
+            }
+        )
     }
 
     private fun applyCustomSettings() {

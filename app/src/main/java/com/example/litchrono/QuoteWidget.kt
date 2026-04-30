@@ -38,8 +38,7 @@ class QuoteWidget : AppWidgetProvider() {
         }
         context.sendBroadcast(updateIntent)
 
-        // Schedule next update at the next minute boundary
-        scheduleNextUpdate(context)
+        // The update broadcast schedules the next refresh after it runs.
     }
 
     override fun onDisabled(context: Context) {
@@ -173,12 +172,10 @@ class QuoteWidget : AppWidgetProvider() {
     private fun scheduleNextUpdate(context: Context) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        // Calculate the next minute boundary
-        val calendar = Calendar.getInstance().apply {
-            add(Calendar.MINUTE, 1)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
+        // Schedule the next refresh 60 seconds after this update instead of snapping
+        // to the next clock-minute boundary. This gives each quote a full minute
+        // of display time even if Android delivers an alarm a little late.
+        val nextUpdateTimeMillis = System.currentTimeMillis() + 60_000L
 
         val intent = Intent(context, QuoteWidget::class.java).apply {
             action = ACTION_UPDATE
@@ -195,27 +192,27 @@ class QuoteWidget : AppWidgetProvider() {
                 if (alarmManager.canScheduleExactAlarms()) {
                     alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
-                        calendar.timeInMillis,
+                        nextUpdateTimeMillis,
                         pendingIntent
                     )
                 } else {
                     alarmManager.setAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
-                        calendar.timeInMillis,
+                        nextUpdateTimeMillis,
                         pendingIntent
                     )
                 }
             } else {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
+                    nextUpdateTimeMillis,
                     pendingIntent
                 )
             }
         } catch (e: SecurityException) {
             alarmManager.setAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
-                calendar.timeInMillis,
+                nextUpdateTimeMillis,
                 pendingIntent
             )
         }
