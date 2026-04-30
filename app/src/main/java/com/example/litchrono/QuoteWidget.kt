@@ -16,7 +16,9 @@ import android.text.Html
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.util.Log
 import android.widget.RemoteViews
+import com.example.litchrono.services.TimeTickService
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.text.SimpleDateFormat
@@ -26,7 +28,42 @@ import kotlin.random.Random
 
 class QuoteWidget : AppWidgetProvider() {
     companion object {
-        private const val ACTION_UPDATE = "com.example.litchrono.WIDGET_UPDATE"
+        const val ACTION_UPDATE = "com.example.litchrono.WIDGET_UPDATE"
+        const val EXTRA_LAST_SCHEDULED = "com.example.litchrono.EXTRA_LAST_SCHEDULED"
+        const val EXTRA_FROM_TICK = "com.example.litchrono.EXTRA_FROM_TICK"
+        private const val TAG = "QuoteWidget"
+    }
+
+    private fun startTimeTickService(context: Context) {
+        val svcIntent = Intent(context, TimeTickService::class.java)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(svcIntent)
+            } else {
+                context.startService(svcIntent)
+            }
+            Log.d(TAG, "startTimeTickService: requested start")
+        } catch (e: Exception) {
+            Log.w(TAG, "startTimeTickService: failed to start service, falling back to alarms", e)
+            // fallback to alarms
+            scheduleNextUpdate(context)
+        }
+    }
+
+    private fun stopTimeTickService(context: Context) {
+        val svcIntent = Intent(context, TimeTickService::class.java)
+        try {
+            context.stopService(svcIntent)
+            Log.d(TAG, "stopTimeTickService: requested stop")
+        } catch (e: Exception) {
+            Log.w(TAG, "stopTimeTickService: failed to stop service", e)
+        }
+    }
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        // Start foreground service to receive ACTION_TIME_TICK reliably
+        startTimeTickService(context)
     }
 
     override fun onUpdate(
@@ -34,18 +71,18 @@ class QuoteWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        // Trigger immediate update
-        val updateIntent = Intent(context, QuoteWidget::class.java).apply {
-            action = ACTION_UPDATE
-        }
-        context.sendBroadcast(updateIntent)
+        // Perform immediate update
+        updateWidget(context)
 
-        // Schedule next update at the next minute boundary
-        scheduleNextUpdate(context)
+        // Ensure service is running (best-effort); if start fails scheduled alarms will be used
+        startTimeTickService(context)
     }
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
+        // Stop the foreground service (no widgets remain)
+        stopTimeTickService(context)
+
         // Cancel any pending alarms
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, QuoteWidget::class.java).apply {
@@ -63,8 +100,37 @@ class QuoteWidget : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == ACTION_UPDATE) {
-            updateWidget(context)
-            scheduleNextUpdate(context)
+            // If this update came from the system time tick, just update and don't schedule alarms
+            val fromTick = intent.getBooleanExtra(EXTRA_FROM_TICK, false)
+            if (fromTick) {
+                val now = System.currentTimeMillis()
+                Log.d(TAG, "onReceive: ACTION_UPDATE fromTick. now=$now")
+                updateWidget(context)
+                return
+            }
+
+            val now = System.currentTimeMillis()
+            // Read the last scheduled time from the intent extras (the time this alarm was meant to fire)
+            val lastScheduled = intent.getLongExtra(EXTRA_LAST_SCHEDULED, 0L)
+            if (lastScheduled > 0L) {
+                val drift = now - lastScheduled
+                Log.d(TAG, "onReceive: ACTION_UPDATE fired. now=$now, lastScheduled=$lastScheduled, drift=${drift} ms")
+
+                // If drift is large, reset the scheduling grid to now+60s to avoid very short or clustered intervals
+                val maxAcceptableDrift = 10_000L // 10 seconds
+                if (drift > maxAcceptableDrift) {
+                    Log.w(TAG, "onReceive: large drift ($drift ms) detected — resetting schedule to now+60s")
+                    updateWidget(context)
+                    scheduleNextUpdate(context, null)
+                } else {
+                    updateWidget(context)
+                    scheduleNextUpdate(context, lastScheduled)
+                }
+            } else {
+                Log.d(TAG, "onReceive: ACTION_UPDATE fired. now=$now, no lastScheduled in intent")
+                updateWidget(context)
+                scheduleNextUpdate(context, null)
+            }
         }
     }
 
@@ -200,18 +266,36 @@ class QuoteWidget : AppWidgetProvider() {
         }
     }
 
-    private fun scheduleNextUpdate(context: Context) {
+    // If lastScheduled is non-null, it should be the time (in millis) that the current alarm was scheduled to fire.
+    // We compute nextScheduled = lastScheduled + 60_000 to avoid accumulating execution delay. If lastScheduled is null,
+    // schedule roughly 60s from now.
+    private fun scheduleNextUpdate(context: Context, lastScheduled: Long? = null) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        // Calculate the next minute boundary
-        val calendar = Calendar.getInstance().apply {
-            add(Calendar.MINUTE, 1)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+        val now = System.currentTimeMillis()
+        // Candidate based on grid (lastScheduled + 60s) or naive now+60s for first run
+        var candidate = if (lastScheduled != null && lastScheduled > 0L) {
+            lastScheduled + 60_000L
+        } else {
+            now + 60_000L
         }
+
+        // If candidate is in the past or too close to now (due to delivery delays), schedule ~60s from now
+        // This avoids accidentally scheduling a time that's already passed (which could cause immediate firing
+        // and then another alarm soon after, producing irregular intervals). Use a small safety margin.
+        val minDelay = 5_000L // 5s
+        if (candidate <= now + minDelay) {
+            candidate = now + 60_000L
+        }
+
+        val nextScheduled = candidate
+
+        // Log scheduling info
+        Log.d(TAG, "scheduleNextUpdate: scheduling next at $nextScheduled (in ${nextScheduled - now} ms)")
 
         val intent = Intent(context, QuoteWidget::class.java).apply {
             action = ACTION_UPDATE
+            putExtra(EXTRA_LAST_SCHEDULED, nextScheduled)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
@@ -222,30 +306,46 @@ class QuoteWidget : AppWidgetProvider() {
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
+                val canExact = alarmManager.canScheduleExactAlarms()
+                Log.d(TAG, "scheduleNextUpdate: API >= S, canScheduleExactAlarms=$canExact")
+                if (canExact) {
+                    Log.d(TAG, "scheduleNextUpdate: using setExactAndAllowWhileIdle")
                     alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
-                        calendar.timeInMillis,
+                        nextScheduled,
                         pendingIntent
                     )
                 } else {
+                    Log.d(TAG, "scheduleNextUpdate: cannot schedule exact alarms; using setAndAllowWhileIdle (inexact)")
                     alarmManager.setAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
-                        calendar.timeInMillis,
+                        nextScheduled,
                         pendingIntent
                     )
                 }
             } else {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
-                    pendingIntent
-                )
+                // Use setExactAndAllowWhileIdle for API >= M, fallback to setExact for older devices
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    Log.d(TAG, "scheduleNextUpdate: API >= M and < S; using setExactAndAllowWhileIdle")
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        nextScheduled,
+                        pendingIntent
+                    )
+                } else {
+                    Log.d(TAG, "scheduleNextUpdate: API < M; using setExact")
+                    alarmManager.setExact(
+                        AlarmManager.RTC_WAKEUP,
+                        nextScheduled,
+                        pendingIntent
+                    )
+                }
             }
         } catch (e: SecurityException) {
+            Log.w(TAG, "scheduleNextUpdate: SecurityException while scheduling exact alarm; falling back to setAndAllowWhileIdle", e)
             alarmManager.setAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
-                calendar.timeInMillis,
+                nextScheduled,
                 pendingIntent
             )
         }
