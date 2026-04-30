@@ -71,12 +71,12 @@ class QuoteWidget : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
-            ACTION_UPDATE -> handleUpdate(context, syncToClock = false)
-            ACTION_SYNC -> handleUpdate(context, syncToClock = true)
+            ACTION_UPDATE -> handleUpdate(context)
+            ACTION_SYNC -> handleUpdate(context)
         }
     }
 
-    private fun handleUpdate(context: Context, syncToClock: Boolean) {
+    private fun handleUpdate(context: Context) {
         val pendingResult = goAsync()
         val appContext = context.applicationContext
 
@@ -84,7 +84,7 @@ class QuoteWidget : AppWidgetProvider() {
             updateQuotesIfNeeded(appContext) {
                 try {
                     updateWidget(appContext)
-                    scheduleNextUpdate(appContext, syncToClock)
+                    scheduleNextUpdate(appContext)
                 } finally {
                     pendingResult.finish()
                 }
@@ -92,7 +92,7 @@ class QuoteWidget : AppWidgetProvider() {
         } catch (e: Exception) {
             e.printStackTrace()
             updateWidget(appContext)
-            scheduleNextUpdate(appContext, syncToClock)
+            scheduleNextUpdate(appContext)
             pendingResult.finish()
         }
     }
@@ -270,24 +270,19 @@ class QuoteWidget : AppWidgetProvider() {
         }
     }
 
-    private fun scheduleNextUpdate(context: Context, syncToClock: Boolean) {
+    private fun scheduleNextUpdate(context: Context) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
         val now = System.currentTimeMillis()
-        val nextUpdateTimeMillis = if (syncToClock) {
-            // On first start or manual sync, line the next update up with the next
-            // real clock-minute boundary. After that alarm fires, updates continue
-            // every 60 seconds so each quote gets a full minute on screen.
-            val calendar = Calendar.getInstance().apply {
-                timeInMillis = now
-                add(Calendar.MINUTE, 1)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            calendar.timeInMillis
-        } else {
-            now + 60_000L
-        }
+        // Always align to the next real clock-minute boundary so that small
+        // delays in alarm delivery (Doze mode, OS batching, etc.) can never
+        // accumulate into noticeable drift — each tick self-corrects.
+        val nextUpdateTimeMillis = Calendar.getInstance().apply {
+            timeInMillis = now
+            add(Calendar.MINUTE, 1)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
 
         val intent = Intent(context, QuoteWidget::class.java).apply {
             action = ACTION_UPDATE

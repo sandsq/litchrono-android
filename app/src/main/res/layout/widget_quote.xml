@@ -1,16 +1,19 @@
-<?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8" ?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/white">
+    android:background="@android:color/white"
+>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:padding="16dp"
-        android:gravity="center">
+        android:gravity="center"
+    >
 
         <TextView
             android:id="@+id/widget_quote"
@@ -21,7 +24,8 @@
             android:textColor="@android:color/black"
             android:gravity="start"
             android:maxLines="10"
-            android:ellipsize="end" />
+            android:ellipsize="end"
+        />
 
         <TextView
             android:id="@+id/widget_author"
@@ -32,7 +36,8 @@
             android:textStyle="italic"
             android:textColor="@android:color/darker_gray"
             android:gravity="start"
-            android:layout_marginTop="12dp" />
+            android:layout_marginTop="12dp"
+        />
 
     </LinearLayout>
 
@@ -41,10 +46,13 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
+        android:layout_marginTop="-5dp"
+        android:layout_marginEnd="2dp"
         android:contentDescription="Sync widget time"
-        android:padding="6dp"
+        android:padding="1dp"
         android:text="↻"
         android:textColor="@android:color/black"
-        android:textSize="18sp" />
+        android:textSize="18sp"
+    />
 
 </FrameLayout>
