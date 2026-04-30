@@ -211,7 +211,7 @@ class QuoteWidget : AppWidgetProvider() {
         var authorText = ""
 
 
-        currentTime = "12:30"
+//        currentTime = "12:30"
 
         if (cachedQuotesJson != null) {
             try {
@@ -260,7 +260,7 @@ class QuoteWidget : AppWidgetProvider() {
         val afterBold = quoteText.substringAfter("</b>")
 
         // Reconstruct with proper color wrapping
-        val quoteWithColors = "<font color='$mainColorRGB'>$beforeBold</font><u><b><font color='$boldColorRGB'>$boldText</font></b></u><font color='$mainColorRGB'>$afterBold</font> aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa aaaaaaa "
+        val quoteWithColors = "<font color='$mainColorRGB'>$beforeBold</font><u><b><font color='$boldColorRGB'>$boldText</font></b></u><font color='$mainColorRGB'>$afterBold</font>"
 
         // Create the RemoteViews object
         val views = RemoteViews(context.packageName, R.layout.widget_quote)
@@ -330,7 +330,11 @@ class QuoteWidget : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_page_down, android.view.View.GONE)
             // reset stored page index
             prefs.edit().putInt(pageKey, 0).apply()
+            // Center vertically when single-page
+            views.setInt(R.id.widget_quote, "setGravity", android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START)
         } else {
+            // For multi-page content, top-align the quote text so pages start at the top
+            views.setInt(R.id.widget_quote, "setGravity", android.view.Gravity.TOP or android.view.Gravity.START)
             val totalPages = (totalLines + linesPerPage - 1) / linesPerPage
             // Clamp page index
             if (pageIndex >= totalPages) pageIndex = totalPages - 1
@@ -341,8 +345,36 @@ class QuoteWidget : AppWidgetProvider() {
             val endLine = kotlin.math.min(startLine + linesPerPage, totalLines)
             val startOffset = fullLayout.getLineStart(startLine)
             val endOffset = fullLayout.getLineEnd(endLine - 1)
-            val pageText = spanned.subSequence(startOffset, endOffset)
-            views.setTextViewText(R.id.widget_quote, pageText)
+
+            val rawPage = spanned.subSequence(startOffset, endOffset)
+
+            // If there is a next page, append an ellipsis to indicate truncation.
+            if (pageIndex < totalPages - 1) {
+                val sb = android.text.SpannableStringBuilder(rawPage)
+                // Trim trailing whitespace
+                var s = sb.toString()
+                var trimEndIndex = s.length
+                while (trimEndIndex > 0 && s[trimEndIndex - 1].isWhitespace()) trimEndIndex--
+
+                // Decide whether to append ellipsis or replace trailing punctuation
+                val shouldAppendEllipsis = if (trimEndIndex == 0) true else {
+                    val lastChar = s[trimEndIndex - 1]
+                    !(lastChar == '.' || lastChar == '!' || lastChar == '?')
+                }
+
+                if (shouldAppendEllipsis) {
+                    // Replace trailing whitespace with ellipsis
+                    if (trimEndIndex < sb.length) {
+                        sb.replace(trimEndIndex, sb.length, "...")
+                    } else {
+                        sb.append("...")
+                    }
+                }
+
+                views.setTextViewText(R.id.widget_quote, sb)
+            } else {
+                views.setTextViewText(R.id.widget_quote, rawPage)
+            }
 
             // show/hide arrows appropriately
             views.setViewVisibility(R.id.widget_page_up, if (pageIndex > 0) android.view.View.VISIBLE else android.view.View.GONE)
