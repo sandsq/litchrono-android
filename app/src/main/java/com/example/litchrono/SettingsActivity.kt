@@ -2,6 +2,7 @@ package com.example.litchrono
 
 import android.os.Bundle
 import android.widget.Button
+import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -22,8 +23,8 @@ class SettingsActivity : AppCompatActivity() {
         // Default colors as rgba hex strings
         const val DEFAULT_BG_LEFT = "1f3a4dcc"
         const val DEFAULT_BG_RIGHT = "8b7b7ccc"
-        const val DEFAULT_TEXT_COLOR = "ADEBB3ff"
-        const val DEFAULT_TIME_COLOR = "f4d8cdff"
+        const val DEFAULT_TEXT_COLOR = "adebb3ff"
+        const val DEFAULT_TIME_COLOR = "e1c16eff"
         const val DEFAULT_FONT = "sans-serif"
         const val DEFAULT_GRADIENT_ANGLE = "45" // 0 degrees (left to right)
     }
@@ -61,6 +62,12 @@ class SettingsActivity : AppCompatActivity() {
         val saveButton = findViewById<Button>(R.id.save_button)
         val resetButton = findViewById<Button>(R.id.reset_button)
 
+        // Swatches
+        val bgLeftSwatch = findViewById<View>(R.id.bg_left_swatch)
+        val bgRightSwatch = findViewById<View>(R.id.bg_right_swatch)
+        val textColorSwatch = findViewById<View>(R.id.text_color_swatch)
+        val timeColorSwatch = findViewById<View>(R.id.time_color_swatch)
+
         fontInput.setText(currentFont)
         bgLeftInput.setText(currentBgLeft)
         bgRightInput.setText(currentBgRight)
@@ -68,28 +75,79 @@ class SettingsActivity : AppCompatActivity() {
         textColorInput.setText(currentTextColor)
         timeColorInput.setText(currentTimeColor)
 
-        // Set up color picker buttons
+        // Helper: normalize for picker; returns 8-char if requireAlpha, otherwise 6-char
+        fun normalizeForPicker(input: String): String {
+            var s = input.trim().removePrefix("#")
+            // if too long (leftover from old bugs), take last 8 chars
+            if (s.length > 8) s = s.takeLast(8)
+            // If 6-digit provided, append full alpha
+            if (s.length == 6) s = (s + "FF")
+            // If shorter or invalid, fallback to default black opaque
+            if (s.length != 8) s = "000000FF"
+            return s.uppercase()
+        }
+
+        fun setSwatch(view: View, hex: String, hasAlpha: Boolean) {
+            try {
+                val h = hex.removePrefix("#")
+                val colorInt = if (hasAlpha) {
+                    // h = RRGGBBAA
+                    val r = Integer.parseInt(h.substring(0,2),16)
+                    val g = Integer.parseInt(h.substring(2,4),16)
+                    val b = Integer.parseInt(h.substring(4,6),16)
+                    val a = Integer.parseInt(h.substring(6,8),16)
+                    android.graphics.Color.argb(a,r,g,b)
+                } else {
+                    val r = Integer.parseInt(h.substring(0,2),16)
+                    val g = Integer.parseInt(h.substring(2,4),16)
+                    val b = Integer.parseInt(h.substring(4,6),16)
+                    android.graphics.Color.rgb(r,g,b)
+                }
+                view.setBackgroundColor(colorInt)
+            } catch (_: Exception) { /* ignore */ }
+        }
+
+        // Initialize swatches from current prefs
+        setSwatch(bgLeftSwatch, currentBgLeft, true)
+        setSwatch(bgRightSwatch, currentBgRight, true)
+            setSwatch(textColorSwatch, currentTextColor, true)
+        setSwatch(timeColorSwatch, currentTimeColor, true)
+
         bgLeftPickerButton.setOnClickListener {
-            ColorPickerDialog(this, bgLeftInput.text.toString()) { color ->
+            val normalized = normalizeForPicker(bgLeftInput.text.toString())
+            bgLeftInput.setText(normalized)
+            ColorPickerDialog(this, normalized) { color ->
                 bgLeftInput.setText(color)
+                setSwatch(bgLeftSwatch, color, true)
             }.show()
         }
 
         bgRightPickerButton.setOnClickListener {
-            ColorPickerDialog(this, bgRightInput.text.toString()) { color ->
+            val normalized = normalizeForPicker(bgRightInput.text.toString())
+            bgRightInput.setText(normalized)
+            ColorPickerDialog(this, normalized) { color ->
                 bgRightInput.setText(color)
+                setSwatch(bgRightSwatch, color, true)
             }.show()
         }
 
         textColorPickerButton.setOnClickListener {
-            ColorPickerDialog(this, textColorInput.text.toString()) { color ->
+            val normalized = normalizeForPicker(textColorInput.text.toString())
+            textColorInput.setText(normalized)
+            // Text color should be opaque but we still keep alpha; use full RRGGBBAA
+            ColorPickerDialog(this, normalized) { color ->
                 textColorInput.setText(color)
+                setSwatch(textColorSwatch, color, true)
             }.show()
         }
 
         timeColorPickerButton.setOnClickListener {
-            ColorPickerDialog(this, timeColorInput.text.toString()) { color ->
+            val normalized = normalizeForPicker(timeColorInput.text.toString())
+            timeColorInput.setText(normalized)
+            // Time color should be opaque but stored as RRGGBBAA
+            ColorPickerDialog(this, normalized) { color ->
                 timeColorInput.setText(color)
+                setSwatch(timeColorSwatch, color, true)
             }.show()
         }
 

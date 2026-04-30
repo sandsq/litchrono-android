@@ -11,6 +11,7 @@ import android.view.View
 class ColorPickerDialog(
     context: Context,
     private val initialColor: String,
+    private val includeAlpha: Boolean = true,
     private val onColorPicked: (String) -> Unit
 ) : Dialog(context) {
 
@@ -25,8 +26,17 @@ class ColorPickerDialog(
             setPadding(20, 20, 20, 20)
         }
 
-        // Convert initial hex to ARGB
-        val (r, g, b, a) = hexToRgba(initialColor)
+        // Convert initial hex to RGB(A)
+        val hexClean = initialColor.trim().removePrefix("#")
+        val (rInit, gInit, bInit, aInit) = try {
+            if (hexClean.length >= 6) {
+                val r = Integer.parseInt(hexClean.substring(0, 2), 16)
+                val g = Integer.parseInt(hexClean.substring(2, 4), 16)
+                val b = Integer.parseInt(hexClean.substring(4, 6), 16)
+                val a = if (hexClean.length >= 8) Integer.parseInt(hexClean.substring(6, 8), 16) else 255
+                Quadruple(r, g, b, a)
+            } else Quadruple(255, 255, 255, 255)
+        } catch (e: Exception) { Quadruple(255,255,255,255) }
 
         // Color preview
         val previewView = View(context).apply {
@@ -34,15 +44,15 @@ class ColorPickerDialog(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 200
             )
-            setBackgroundColor(Color.argb(a, r, g, b))
+            setBackgroundColor(Color.argb(aInit, rInit, gInit, bInit))
         }
         rootView.addView(previewView)
 
         // Red SeekBar
-        rootView.addView(createLabel(context, "Red: $r"))
+        rootView.addView(createLabel(context, "Red: $rInit"))
         val redSeekBar = SeekBar(context).apply {
             max = 255
-            progress = r
+            progress = rInit
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -51,10 +61,10 @@ class ColorPickerDialog(
         rootView.addView(redSeekBar)
 
         // Green SeekBar
-        rootView.addView(createLabel(context, "Green: $g"))
+        rootView.addView(createLabel(context, "Green: $gInit"))
         val greenSeekBar = SeekBar(context).apply {
             max = 255
-            progress = g
+            progress = gInit
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -63,10 +73,10 @@ class ColorPickerDialog(
         rootView.addView(greenSeekBar)
 
         // Blue SeekBar
-        rootView.addView(createLabel(context, "Blue: $b"))
+        rootView.addView(createLabel(context, "Blue: $bInit"))
         val blueSeekBar = SeekBar(context).apply {
             max = 255
-            progress = b
+            progress = bInit
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -74,21 +84,31 @@ class ColorPickerDialog(
         }
         rootView.addView(blueSeekBar)
 
-        // Alpha SeekBar
-        rootView.addView(createLabel(context, "Alpha: $a"))
-        val alphaSeekBar = SeekBar(context).apply {
-            max = 255
-            progress = a
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+        // Alpha SeekBar (optional)
+        val alphaSeekBar = SeekBar(context)
+        if (includeAlpha) {
+            rootView.addView(createLabel(context, "Alpha: $aInit"))
+            alphaSeekBar.apply {
+                max = 255
+                progress = aInit
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            rootView.addView(alphaSeekBar)
+        } else {
+            // If alpha not included, default alpha value
+            alphaSeekBar.apply { max = 255; progress = 255 }
         }
-        rootView.addView(alphaSeekBar)
 
         // Hex display
         val hexDisplay = TextView(context).apply {
-            text = "Hex: $initialColor"
+            val initialHex = if (includeAlpha) initialColor else {
+                // show RGB only
+                String.format("%02X%02X%02X", rInit, gInit, bInit)
+            }
+            text = "Hex: $initialHex"
             textSize = 16f
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -106,14 +126,14 @@ class ColorPickerDialog(
             val newA = alphaSeekBar.progress
 
             previewView.setBackgroundColor(Color.argb(newA, newR, newG, newB))
-            val hexColor = rgbaToHex(newR, newG, newB, newA)
+            val hexColor = if (includeAlpha) rgbaToHex(newR, newG, newB, newA) else String.format("%02X%02X%02X", newR, newG, newB)
             hexDisplay.text = "Hex: $hexColor"
 
-            // Update labels
+            // Update labels (positions are stable)
             (rootView.getChildAt(1) as TextView).text = "Red: $newR"
             (rootView.getChildAt(3) as TextView).text = "Green: $newG"
             (rootView.getChildAt(5) as TextView).text = "Blue: $newB"
-            (rootView.getChildAt(7) as TextView).text = "Alpha: $newA"
+            if (includeAlpha) (rootView.getChildAt(7) as TextView).text = "Alpha: $newA"
         }
 
         redSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -134,11 +154,13 @@ class ColorPickerDialog(
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
-        alphaSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) = updateColor()
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+        if (includeAlpha) {
+            alphaSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) = updateColor()
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+        }
 
         // Buttons
         val buttonLayout = LinearLayout(context).apply {
@@ -158,12 +180,15 @@ class ColorPickerDialog(
                 1f
             )
             setOnClickListener {
-                val finalColor = rgbaToHex(
+                val finalColor = if (includeAlpha) rgbaToHex(
                     redSeekBar.progress,
                     greenSeekBar.progress,
                     blueSeekBar.progress,
                     alphaSeekBar.progress
-                )
+                ) else {
+                    // Return RGB-only (RRGGBB) when alpha choice is disabled
+                    String.format("%02X%02X%02X", redSeekBar.progress, greenSeekBar.progress, blueSeekBar.progress)
+                }
                 onColorPicked(finalColor)
                 dismiss()
             }

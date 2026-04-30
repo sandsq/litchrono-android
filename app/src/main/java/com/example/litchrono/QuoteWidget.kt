@@ -261,7 +261,7 @@ class QuoteWidget : AppWidgetProvider() {
 
         // Reconstruct with proper color wrapping
         val quoteWithColors = "<font color='$mainColorRGB'>$beforeBold</font><u><b><font color='$boldColorRGB'>$boldText</font></b></u><font color='$mainColorRGB'>$afterBold</font>"
-//        test hello what there other word to type random things to make it longer yeah idk wait my mouse battery is already low that's kinda surprising although I am using it more for gaming so maybe that's why"
+//        test hello what there other word to type random things to make it longer yeah idk wait my mouse battery is already low that's kinda surprising although I am using it more for gaming so maybe that's why that's kinda annoying I wonder if I can get an even bigger battery capacity"
 
         // Create the RemoteViews object
         val views = RemoteViews(context.packageName, R.layout.widget_quote)

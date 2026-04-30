@@ -57,11 +57,11 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Background Gradient Left Color (RRGGBBAA)"
-                android:textSize="14sp"
-                android:layout_marginBottom="8dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
+                android:layout_marginBottom="8dp"
+                android:text="Background Gradient Color 1 (RRGGBBAA)"
+                android:textSize="14sp"
             />
 
             <LinearLayout
@@ -82,6 +82,14 @@
                     android:hint="1f3a4dcc"
                 />
 
+                <View
+                    android:id="@+id/bg_left_swatch"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="8dp"
+                    android:background="#1f3a4dcc"
+                />
+
                 <Button
                     android:id="@+id/bg_left_color_picker"
                     android:layout_width="wrap_content"
@@ -95,11 +103,11 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Background Gradient Right Color (RRGGBBAA)"
-                android:textSize="14sp"
-                android:layout_marginBottom="8dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
+                android:layout_marginBottom="8dp"
+                android:text="Background Gradient Color 2 (RRGGBBAA)"
+                android:textSize="14sp"
             />
 
             <LinearLayout
@@ -118,6 +126,14 @@
                     android:layout_weight="1"
                     android:inputType="text"
                     android:hint="8b7b7ccc"
+                />
+
+                <View
+                    android:id="@+id/bg_right_swatch"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="8dp"
+                    android:background="#8b7b7ccc"
                 />
 
                 <Button
@@ -154,11 +170,11 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Quote Text Color (RRGGBBAA)"
-                android:textSize="14sp"
-                android:layout_marginBottom="8dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
+                android:layout_marginBottom="8dp"
+                android:text="Quote Text Color (RRGGBB)"
+                android:textSize="14sp"
             />
 
             <LinearLayout
@@ -175,8 +191,16 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:hint="ADEBB3"
                     android:inputType="text"
-                    android:hint="ADEBB3ff"
+                />
+
+                <View
+                    android:id="@+id/text_color_swatch"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="8dp"
+                    android:background="#ADEBB3"
                 />
 
                 <Button
@@ -192,11 +216,11 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Time Text Color (RRGGBBAA)"
-                android:textSize="14sp"
-                android:layout_marginBottom="8dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
+                android:layout_marginBottom="8dp"
+                android:text="Time Text Color (RRGGBB)"
+                android:textSize="14sp"
             />
 
             <LinearLayout
@@ -213,8 +237,16 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:hint="f4d8cd"
                     android:inputType="text"
-                    android:hint="f4d8cdff"
+                />
+
+                <View
+                    android:id="@+id/time_color_swatch"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="8dp"
+                    android:background="#f4d8cd"
                 />
 
                 <Button
