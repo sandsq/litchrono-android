@@ -3,9 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <!-- Needed to call startForeground from the TimeTickService -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
 
     <application
         android:allowBackup="true"
@@ -30,22 +28,15 @@
             android:name=".SettingsActivity"
             android:exported="false" />
 
-        <receiver
-            android:name=".QuoteWidget"
-            android:exported="true">
+        <receiver android:name=".QuoteWidgetProvider" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.example.litchrono.WIDGET_UPDATE" />
             </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/quote_widget_info" />
         </receiver>
 
-        <service
-            android:name=".services.TimeTickService"
-            android:exported="false"
-            android:foregroundServiceType="shortService" />
+        <service android:name=".QuoteUpdateService" android:exported="false" />
+
     </application>
 
 </manifest>

@@ -36,9 +36,9 @@ class MainActivity : AppCompatActivity() {
     private var lastDisplayedMinute = -1
 
     companion object {
-        private const val PREFS_NAME = "litchrono_prefs"
-        private const val QUOTES_DATA_KEY = "quotes_data"
-        private const val LAST_FETCH_TIME_KEY = "last_fetch_time"
+        const val PREFS_NAME = "litchrono_prefs"
+        const val QUOTES_DATA_KEY = "quotes_data"
+        const val LAST_FETCH_TIME_KEY = "last_fetch_time"
         private const val ONE_DAY_MS = 24 * 60 * 60 * 1000L
         private const val SETTINGS_REQUEST_CODE = 1
     }
@@ -73,6 +73,21 @@ class MainActivity : AppCompatActivity() {
         updateTime()
         // Start continuous time updates
         startTimeUpdates()
+
+        // Quick debug: check whether widget service is running and request POST_NOTIFICATIONS permission on Android 13+
+        try {
+            val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            val running = prefs.getBoolean("widget_service_running", false)
+            android.util.Log.d("LitchronoMain", "widget_service_running = $running")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 2001)
+            }
+        }
     }
 
     override fun onResume() {
