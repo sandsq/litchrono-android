@@ -34,6 +34,7 @@ import kotlin.random.Random
 class MainActivity : AppCompatActivity() {
     private lateinit var timeTextView: TextView
     private lateinit var quoteTextView: TextView
+    private lateinit var cacheInfoTextView: TextView
     private var allQuotes: Map<String, List<Quote>> = emptyMap()
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     private val handler = Handler(Looper.getMainLooper())
@@ -44,7 +45,6 @@ class MainActivity : AppCompatActivity() {
         private const val PREFS_NAME = "litchrono_prefs"
         private const val QUOTES_DATA_KEY = "quotes_data"
         private const val LAST_FETCH_TIME_KEY = "last_fetch_time"
-        private const val ONE_DAY_MS = 24 * 60 * 60 * 1000L
         private const val SETTINGS_REQUEST_CODE = 1
     }
 
@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity() {
         // Initialize views first
         timeTextView = findViewById(R.id.timeTextView)
         quoteTextView = findViewById(R.id.quoteTextView)
+        cacheInfoTextView = findViewById(R.id.cacheInfoTextView)
 
         // Add settings button
         val settingsButton = findViewById<ImageButton>(R.id.settings_button)
@@ -73,7 +74,7 @@ class MainActivity : AppCompatActivity() {
 
         requestExactAlarmPermissionIfNeeded()
 
-        // Load cached quotes and check for updates
+        // Load cached quotes; fetch only once when the app has no cached data yet.
         loadQuotes()
 
         // Update time immediately
@@ -184,6 +185,7 @@ class MainActivity : AppCompatActivity() {
         timeTextView.setTextColor(timeColor)
         // Don't set color on quoteTextView - let HTML font tags control colors
         // quoteTextView.setTextColor(textColor)
+        cacheInfoTextView.setTextColor(textColor)
 
         // Apply font (using default typeface since custom fonts require files)
         try {
@@ -211,7 +213,6 @@ class MainActivity : AppCompatActivity() {
     private fun loadQuotes() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val cachedQuotesJson = prefs.getString(QUOTES_DATA_KEY, null)
-        val lastFetchTime = prefs.getLong(LAST_FETCH_TIME_KEY, 0L)
 
         // Load cached data if available
         if (cachedQuotesJson != null) {
@@ -220,16 +221,39 @@ class MainActivity : AppCompatActivity() {
                 val type = object : com.google.gson.reflect.TypeToken<Map<String, List<Quote>>>() {}.type
                 allQuotes = gson.fromJson(cachedQuotesJson, type)
                 updateQuote()
+                updateCacheInfo(cachedQuotesJson)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
-        // Check if we need to update (if cache is empty or more than 1 day old)
-        val currentTime = System.currentTimeMillis()
-        if (cachedQuotesJson == null || currentTime - lastFetchTime > ONE_DAY_MS) {
+        // App-side fetching is only for the initial cache fill after install.
+        // Ongoing refreshes are handled by the widget.
+        if (cachedQuotesJson == null) {
             fetchQuotesFromServer()
+        } else {
+            updateCacheInfo(cachedQuotesJson)
         }
+    }
+
+    private fun updateCacheInfo(cachedQuotesJson: String?) {
+        if (cachedQuotesJson.isNullOrBlank() || allQuotes.isEmpty()) {
+            cacheInfoTextView.text = "Quote cache: not loaded yet"
+            return
+        }
+
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val lastFetchTime = prefs.getLong(LAST_FETCH_TIME_KEY, 0L)
+        val totalQuoteCount = allQuotes.values.sumOf { it.size }
+        val timeSlotCount = allQuotes.size
+        val lastUpdatedText = if (lastFetchTime > 0L) {
+            val dateFormat = SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault())
+            dateFormat.format(java.util.Date(lastFetchTime))
+        } else {
+            "unknown"
+        }
+
+        cacheInfoTextView.text = "Last updated: $lastUpdatedText • $totalQuoteCount quotes"
     }
 
     private fun fetchQuotesFromServer() {
@@ -248,6 +272,7 @@ class MainActivity : AppCompatActivity() {
                     // Save to local storage
                     saveQuotesToCache(allQuotes)
                     updateQuote()
+                    updateCacheInfo(Gson().toJson(allQuotes))
                 }
             }
 
@@ -255,6 +280,7 @@ class MainActivity : AppCompatActivity() {
                 // Only show error if we don't have cached data
                 if (allQuotes.isEmpty()) {
                     quoteTextView.text = "Failed to load quotes"
+                    updateCacheInfo(null)
                 }
                 t.printStackTrace()
             }
