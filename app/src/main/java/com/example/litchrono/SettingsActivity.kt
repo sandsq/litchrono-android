@@ -98,6 +98,18 @@ class SettingsActivity : AppCompatActivity() {
             return s.uppercase()
         }
 
+        // Ensure a color string becomes an 8-char hex by appending 'F' if needed
+        fun ensureEightHex(input: String): String {
+            var s = input.trim().removePrefix("#")
+            // if too long, take last 8 chars
+            if (s.length > 8) s = s.takeLast(8)
+            // If exactly 6 characters (RRGGBB), append full alpha
+            if (s.length == 6) s = s + "FF"
+            // If shorter than 8, pad with 'F' at the end
+            if (s.length < 8) s = s.padEnd(8, 'F')
+            return s.uppercase()
+        }
+
         fun setSwatch(view: View, hex: String, hasAlpha: Boolean) {
             try {
                 val h = hex.removePrefix("#")
@@ -121,8 +133,50 @@ class SettingsActivity : AppCompatActivity() {
         // Initialize swatches from current prefs
         setSwatch(bgLeftSwatch, currentBgLeft, true)
         setSwatch(bgRightSwatch, currentBgRight, true)
-            setSwatch(textColorSwatch, currentTextColor, true)
+        setSwatch(textColorSwatch, currentTextColor, true)
         setSwatch(timeColorSwatch, currentTimeColor, true)
+
+        // Helper to strip leading '#' on focus lost or Enter, and update swatch accordingly.
+        fun attachStripHashAndUpdate(edit: EditText, swatch: View) {
+            // ensure IME shows a Done action so Enter can be handled
+            edit.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+
+            edit.setOnFocusChangeListener { _, hasFocus ->
+                if (!hasFocus) {
+                    var s = edit.text.toString().trim()
+                    if (s.startsWith("#")) {
+                        s = s.removePrefix("#")
+                        edit.setText(s)
+                    }
+                    // update swatch using normalized value (adds alpha if needed)
+                    val normalized = normalizeForPicker(s)
+                    setSwatch(swatch, normalized, true)
+                }
+            }
+
+            edit.setOnEditorActionListener { v, actionId, event ->
+                val isEnter = event != null && event.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event.action == android.view.KeyEvent.ACTION_DOWN
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || isEnter) {
+                    var s = edit.text.toString().trim()
+                    if (s.startsWith("#")) {
+                        s = s.removePrefix("#")
+                        edit.setText(s)
+                    }
+                    val normalized = normalizeForPicker(s)
+                    setSwatch(swatch, normalized, true)
+                    // Let the system handle hiding the keyboard; return false so default handling proceeds
+                    false
+                } else {
+                    false
+                }
+            }
+        }
+
+        // Attach handlers to color fields
+        attachStripHashAndUpdate(bgLeftInput, bgLeftSwatch)
+        attachStripHashAndUpdate(bgRightInput, bgRightSwatch)
+        attachStripHashAndUpdate(textColorInput, textColorSwatch)
+        attachStripHashAndUpdate(timeColorInput, timeColorSwatch)
 
         bgLeftPickerButton.setOnClickListener {
             val normalized = normalizeForPicker(bgLeftInput.text.toString())
@@ -164,16 +218,39 @@ class SettingsActivity : AppCompatActivity() {
 
         saveButton.setOnClickListener {
             val font = fontInput.text.toString().trim()
-            val bgLeft = bgLeftInput.text.toString().trim()
-            val bgRight = bgRightInput.text.toString().trim()
+            // Strip leading '#' if present for color fields
+            var bgLeft = bgLeftInput.text.toString().trim()
+            if (bgLeft.startsWith("#")) bgLeft = bgLeft.removePrefix("#")
+            var bgRight = bgRightInput.text.toString().trim()
+            if (bgRight.startsWith("#")) bgRight = bgRight.removePrefix("#")
             val gradientAngle = gradientAngleInput.text.toString().trim()
-            val textColor = textColorInput.text.toString().trim()
-            val timeColor = timeColorInput.text.toString().trim()
+            var textColor = textColorInput.text.toString().trim()
+            if (textColor.startsWith("#")) textColor = textColor.removePrefix("#")
+            var timeColor = timeColorInput.text.toString().trim()
+            if (timeColor.startsWith("#")) timeColor = timeColor.removePrefix("#")
+
+            // Update the EditText fields to reflect stripped values (so UI stays consistent)
+            bgLeftInput.setText(bgLeft)
+            bgRightInput.setText(bgRight)
+            textColorInput.setText(textColor)
+            timeColorInput.setText(timeColor)
 
             if (font.isEmpty() || bgLeft.isEmpty() || bgRight.isEmpty() || gradientAngle.isEmpty() || textColor.isEmpty() || timeColor.isEmpty()) {
                 showMessage("All fields are required")
                 return@setOnClickListener
             }
+
+            // Auto-pad colors to 8 characters by appending 'F' if needed
+            bgLeft = ensureEightHex(bgLeft)
+            bgRight = ensureEightHex(bgRight)
+            textColor = ensureEightHex(textColor)
+            timeColor = ensureEightHex(timeColor)
+
+            // Update EditText with padded values so the user sees what will be saved
+            bgLeftInput.setText(bgLeft)
+            bgRightInput.setText(bgRight)
+            textColorInput.setText(textColor)
+            timeColorInput.setText(timeColor)
 
             // Validate hex colors
             if (!isValidHexColor(bgLeft) || !isValidHexColor(bgRight) || !isValidHexColor(textColor) || !isValidHexColor(timeColor)) {
@@ -210,6 +287,12 @@ class SettingsActivity : AppCompatActivity() {
             gradientAngleInput.setText(DEFAULT_GRADIENT_ANGLE)
             textColorInput.setText(DEFAULT_TEXT_COLOR)
             timeColorInput.setText(DEFAULT_TIME_COLOR)
+
+            // Update swatches to reflect the default values
+            setSwatch(bgLeftSwatch, DEFAULT_BG_LEFT, true)
+            setSwatch(bgRightSwatch, DEFAULT_BG_RIGHT, true)
+            setSwatch(textColorSwatch, DEFAULT_TEXT_COLOR, true)
+            setSwatch(timeColorSwatch, DEFAULT_TIME_COLOR, true)
         }
     }
 
