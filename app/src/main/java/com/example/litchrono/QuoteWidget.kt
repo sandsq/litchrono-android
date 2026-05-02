@@ -8,8 +8,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-
+import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.text.Html
 import android.text.SpannableString
 import android.text.Spanned
@@ -33,8 +35,11 @@ class QuoteWidget : AppWidgetProvider() {
         private const val ACTION_SYNC = "com.example.litchrono.WIDGET_SYNC"
         private const val ACTION_PAGE_UP = "com.example.litchrono.WIDGET_PAGE_UP"
         private const val ACTION_PAGE_DOWN = "com.example.litchrono.WIDGET_PAGE_DOWN"
+        private const val EXTRA_SHOW_REFRESH_FEEDBACK = "show_refresh_feedback"
         private const val LAST_FETCH_TIME_KEY = "last_fetch_time"
         private const val LAST_WIDGET_FETCH_CHECK_TIME_KEY = "last_widget_fetch_check_time"
+        private const val REFRESH_FEEDBACK_UNTIL_KEY = "widget_refresh_feedback_until"
+        private const val REFRESH_FEEDBACK_MS = 700L
         private const val ONE_DAY_MS = 24 * 60 * 60 * 1000L
         private const val EMPTY_CACHE_RETRY_MS = 15 * 60 * 1000L
         private const val QUOTES_BASE_URL = "https://raw.githubusercontent.com/sandsq/time_of_day_quotes/refs/heads/main/"
@@ -77,8 +82,11 @@ class QuoteWidget : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
-            ACTION_UPDATE -> handleUpdate(context)
-            ACTION_SYNC -> handleUpdate(context)
+            ACTION_UPDATE -> handleUpdate(context, showRefreshFeedback = false)
+            ACTION_SYNC -> handleUpdate(
+                context,
+                showRefreshFeedback = intent.getBooleanExtra(EXTRA_SHOW_REFRESH_FEEDBACK, false)
+            )
             ACTION_PAGE_UP -> handlePageChange(context, intent, -1)
             ACTION_PAGE_DOWN -> handlePageChange(context, intent, 1)
         }
@@ -97,24 +105,52 @@ class QuoteWidget : AppWidgetProvider() {
         updateAppWidget(context, AppWidgetManager.getInstance(context), appWidgetId)
     }
 
-    private fun handleUpdate(context: Context) {
+    private fun handleUpdate(context: Context, showRefreshFeedback: Boolean) {
         val pendingResult = goAsync()
         val appContext = context.applicationContext
+        val prefs = appContext.getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+        val feedbackStartedAt = System.currentTimeMillis()
+
+        if (showRefreshFeedback) {
+            prefs.edit()
+                .putLong(REFRESH_FEEDBACK_UNTIL_KEY, feedbackStartedAt + REFRESH_FEEDBACK_MS)
+                .apply()
+            updateWidget(appContext)
+        }
+
+        fun finishUpdate() {
+            fun clearFeedbackAndFinish() {
+                if (showRefreshFeedback) {
+                    prefs.edit().remove(REFRESH_FEEDBACK_UNTIL_KEY).apply()
+                }
+                updateWidget(appContext)
+                scheduleNextUpdate(appContext)
+                pendingResult.finish()
+            }
+
+            val elapsed = System.currentTimeMillis() - feedbackStartedAt
+            val remainingFeedbackMs = if (showRefreshFeedback) REFRESH_FEEDBACK_MS - elapsed else 0L
+            if (remainingFeedbackMs > 0L) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    clearFeedbackAndFinish()
+                }, remainingFeedbackMs)
+            } else {
+                clearFeedbackAndFinish()
+            }
+        }
 
         try {
             updateQuotesIfNeeded(appContext) {
                 try {
-                    updateWidget(appContext)
-                    scheduleNextUpdate(appContext)
-                } finally {
+                    finishUpdate()
+                } catch (e: Exception) {
+                    e.printStackTrace()
                     pendingResult.finish()
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            updateWidget(appContext)
-            scheduleNextUpdate(appContext)
-            pendingResult.finish()
+            finishUpdate()
         }
     }
 
@@ -206,6 +242,7 @@ class QuoteWidget : AppWidgetProvider() {
 
         // Load cached quotes
         val cachedQuotesJson = prefs.getString(SettingsActivity.QUOTES_DATA_KEY, null)
+        val isRefreshFeedbackActive = System.currentTimeMillis() < prefs.getLong(REFRESH_FEEDBACK_UNTIL_KEY, 0L)
 
         var quoteText = "No quotes available"
         var authorText = ""
@@ -431,15 +468,33 @@ class QuoteWidget : AppWidgetProvider() {
         )
         views.setTextColor(R.id.widget_author, semitransparentTextColor)
         views.setTextColor(R.id.widget_sync_button, textColor)
+        views.setTextViewText(R.id.widget_sync_button, if (isRefreshFeedbackActive) "⟳" else "↻")
         // Color the page arrows to match the configured text color
         views.setTextColor(R.id.widget_page_up, textColor)
         views.setTextColor(R.id.widget_page_down, textColor)
 
-        // Apply the first configured background color (RemoteViews doesn't support gradients)
-        views.setInt(R.id.main, "setBackgroundColor", bgLeftColor)
+        if (authorText.isNotBlank()) {
+            val searchUri = Uri.parse("https://www.google.com/search").buildUpon()
+                .appendQueryParameter("q", authorText)
+                .build()
+            val searchIntent = Intent(Intent.ACTION_VIEW, searchUri)
+            val searchPendingIntent = PendingIntent.getActivity(
+                context,
+                appWidgetId * 10 + 4,
+                searchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_author, searchPendingIntent)
+        }
+
+        // Apply the first configured background color (RemoteViews doesn't support gradients).
+        // Briefly darken it after a manual refresh tap so the widget visibly acknowledges the press.
+        val widgetBackgroundColor = if (isRefreshFeedbackActive) shadeColor(bgLeftColor, 0.82f) else bgLeftColor
+        views.setInt(R.id.main, "setBackgroundColor", widgetBackgroundColor)
 
         val syncIntent = Intent(context, QuoteWidget::class.java).apply {
             action = ACTION_SYNC
+            putExtra(EXTRA_SHOW_REFRESH_FEEDBACK, true)
         }
         val syncPendingIntent = PendingIntent.getBroadcast(
             context,
@@ -463,6 +518,15 @@ class QuoteWidget : AppWidgetProvider() {
         } catch (e: Exception) {
             Color.WHITE
         }
+    }
+
+    private fun shadeColor(color: Int, factor: Float): Int {
+        return Color.argb(
+            Color.alpha(color),
+            (Color.red(color) * factor).toInt().coerceIn(0, 255),
+            (Color.green(color) * factor).toInt().coerceIn(0, 255),
+            (Color.blue(color) * factor).toInt().coerceIn(0, 255)
+        )
     }
 
     private fun scheduleNextUpdate(context: Context) {
