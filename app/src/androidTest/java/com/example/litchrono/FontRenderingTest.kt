@@ -1,12 +1,14 @@
 package com.example.litchrono
 
 import android.graphics.Color
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.os.Parcel
 import android.text.Html
 import android.text.TextPaint
 import android.text.style.StyleSpan
+import android.view.View
 import android.widget.ImageView
 import android.widget.RemoteViews
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -79,6 +81,45 @@ class FontRenderingTest {
         val smallBudget = WidgetTextRenderer.bitmap(page, height = 4000, maxPixels = 16384)
         assertTrue(smallBudget.allocationByteCount <= 16384 * 4)
         smallBudget.recycle()
+    }
+
+    @Test
+    fun quotePreservesAspectRatioWhenLauncherHeightDiffers() {
+        val paint = TextPaint().apply {
+            textSize = 28f
+            typeface = AppFonts.load(context, "Lora")
+        }
+        val bitmap = WidgetTextRenderer.bitmap(WidgetTextRenderer.layout("A quote", paint, 240), height = 120)
+        val views = RemoteViews(context.packageName, R.layout.widget_quote).apply {
+            setImageViewBitmap(R.id.widget_quote, bitmap)
+        }
+        try {
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                val root = views.apply(context, null)
+                val quote = root.findViewById<ImageView>(R.id.widget_quote)
+                for (height in listOf(600, 900)) {
+                    root.measure(
+                        View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+                    )
+                    root.layout(0, 0, 480, height)
+                    val drawable = quote.drawable
+                    val source = RectF(0f, 0f, drawable.intrinsicWidth.toFloat(), drawable.intrinsicHeight.toFloat())
+                    val displayed = RectF(drawable.bounds)
+                    quote.imageMatrix.mapRect(displayed)
+                    assertEquals(
+                        "Launcher height must not distort the rendered text",
+                        source.width() / source.height(),
+                        displayed.width() / displayed.height(),
+                        0.001f
+                    )
+                    assertTrue(displayed.width() <= quote.width + 1f)
+                    assertTrue(displayed.height() <= quote.height + 1f)
+                }
+            }
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     @Test

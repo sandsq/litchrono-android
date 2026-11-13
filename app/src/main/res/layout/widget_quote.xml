@@ -26,7 +26,7 @@
             android:layout_weight="1"
             android:layout_marginEnd="6dp"
             android:contentDescription="Loading quote..."
-            android:scaleType="fitXY"
+            android:scaleType="fitCenter"
         />
 
         <ImageView
