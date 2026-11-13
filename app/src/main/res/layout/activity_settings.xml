@@ -36,19 +36,21 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Font Name (e.g., sans-serif)"
+                android:text="Font name (app and widget)"
                 android:textSize="14sp"
                 android:layout_marginBottom="8dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
             />
 
-            <EditText
+            <AutoCompleteTextView
                 android:id="@+id/font_input"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="text"
-                android:hint="sans-serif"
+                android:hint="Open Sans, Lora, or an Android font name"
+                android:completionThreshold="1"
+                android:singleLine="true"
                 android:layout_marginBottom="16dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"

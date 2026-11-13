@@ -1,0 +1,66 @@
+{
+  "format_version": 1,
+  "path_base": "app/src/main",
+  "files": [
+    {
+      "path": "res/font/open_sans_regular.ttf",
+      "source_url": "https://raw.githubusercontent.com/googlefonts/opensans/6cbc400d4855abee59d85c4ed871d510399bce7b/fonts/ttf/OpenSans-Regular.ttf",
+      "bytes": 147528,
+      "sha256": "c53aceea2dcf5b4098099c0c4d0a061d17e178a049317b42a422b1a9f7f8eb59"
+    },
+    {
+      "path": "res/font/open_sans_bold.ttf",
+      "source_url": "https://raw.githubusercontent.com/googlefonts/opensans/6cbc400d4855abee59d85c4ed871d510399bce7b/fonts/ttf/OpenSans-Bold.ttf",
+      "bytes": 147264,
+      "sha256": "27da758f4dcac9a65abe914c13b463b42982b9909bc65713424099f4810bd1e6"
+    },
+    {
+      "path": "res/font/open_sans_italic.ttf",
+      "source_url": "https://raw.githubusercontent.com/googlefonts/opensans/6cbc400d4855abee59d85c4ed871d510399bce7b/fonts/ttf/OpenSans-Italic.ttf",
+      "bytes": 153256,
+      "sha256": "93bc1bb6abf4e6b7c75d7131714061d5b57cc478abcabe4cb3519bb38fb917aa"
+    },
+    {
+      "path": "res/font/open_sans_bold_italic.ttf",
+      "source_url": "https://raw.githubusercontent.com/googlefonts/opensans/6cbc400d4855abee59d85c4ed871d510399bce7b/fonts/ttf/OpenSans-BoldItalic.ttf",
+      "bytes": 153308,
+      "sha256": "d672a770037104b6af45e1336b3d3c1729c8aea940f81e010f5a8a7319c29a21"
+    },
+    {
+      "path": "assets/fonts/open_sans/OFL.txt",
+      "source_url": "https://raw.githubusercontent.com/googlefonts/opensans/6cbc400d4855abee59d85c4ed871d510399bce7b/OFL.txt",
+      "bytes": 4216,
+      "sha256": "01cd5ffb3a528c219a86e49a814c6c53bd8a69b9a3c305dd237074ba1c811af7"
+    },
+    {
+      "path": "res/font/lora_regular.ttf",
+      "source_url": "https://raw.githubusercontent.com/cyrealtype/Lora-Cyrillic/2d53b449b60e185b39f671b44fded83e0910ad30/fonts/ttf/Lora-Regular.ttf",
+      "bytes": 198380,
+      "sha256": "c72a925082ba55885e7b4ead25d34a3c91fa44edda72a16a3a2983fc7fa7cef3"
+    },
+    {
+      "path": "res/font/lora_bold.ttf",
+      "source_url": "https://raw.githubusercontent.com/cyrealtype/Lora-Cyrillic/2d53b449b60e185b39f671b44fded83e0910ad30/fonts/ttf/Lora-Bold.ttf",
+      "bytes": 218640,
+      "sha256": "32baf740eac1bf3f257904a6cf89e4e067ca1566b375bf22f743a26fc88b3791"
+    },
+    {
+      "path": "res/font/lora_italic.ttf",
+      "source_url": "https://raw.githubusercontent.com/cyrealtype/Lora-Cyrillic/2d53b449b60e185b39f671b44fded83e0910ad30/fonts/ttf/Lora-Italic.ttf",
+      "bytes": 206912,
+      "sha256": "1985f2fa49d675c3d88ca6a0b9161be38f955bec7efb025d2a5b68bc03e471fe"
+    },
+    {
+      "path": "res/font/lora_bold_italic.ttf",
+      "source_url": "https://raw.githubusercontent.com/cyrealtype/Lora-Cyrillic/2d53b449b60e185b39f671b44fded83e0910ad30/fonts/ttf/Lora-BoldItalic.ttf",
+      "bytes": 213560,
+      "sha256": "f448e41ab0bf529ec7bd4f8aef843eb4d33b5608c7ed0a53128ead588e6ea9e5"
+    },
+    {
+      "path": "assets/fonts/lora/OFL.txt",
+      "source_url": "https://raw.githubusercontent.com/cyrealtype/Lora-Cyrillic/2d53b449b60e185b39f671b44fded83e0910ad30/OFL.txt",
+      "bytes": 4423,
+      "sha256": "1d9a970809ac804b582a6ce7f0ebc4e7fefcbfd7ff6299cad35ee656a21be716"
+    }
+  ]
+}

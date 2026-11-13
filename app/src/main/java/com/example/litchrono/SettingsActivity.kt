@@ -1,6 +1,8 @@
 package com.example.litchrono
 
 import android.os.Bundle
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.view.View
 import android.widget.EditText
@@ -60,7 +62,9 @@ class SettingsActivity : AppCompatActivity() {
         val currentTimeColor = prefs.getString(KEY_TIME_COLOR, DEFAULT_TIME_COLOR) ?: DEFAULT_TIME_COLOR
 
         // Set up input fields
-        val fontInput = findViewById<EditText>(R.id.font_input)
+        val fontInput = findViewById<AutoCompleteTextView>(R.id.font_input)
+        fontInput.setAdapter(ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, AppFonts.suggestions))
+        fontInput.setOnClickListener { fontInput.showDropDown() }
         val bgLeftInput = findViewById<EditText>(R.id.bg_left_color_input)
         val bgRightInput = findViewById<EditText>(R.id.bg_right_color_input)
         val gradientAngleInput = findViewById<EditText>(R.id.gradient_angle_input)
@@ -115,19 +119,20 @@ class SettingsActivity : AppCompatActivity() {
                 val h = hex.removePrefix("#")
                 val colorInt = if (hasAlpha) {
                     // h = RRGGBBAA
-                    val r = Integer.parseInt(h.substring(0,2),16)
-                    val g = Integer.parseInt(h.substring(2,4),16)
-                    val b = Integer.parseInt(h.substring(4,6),16)
-                    val a = Integer.parseInt(h.substring(6,8),16)
-                    android.graphics.Color.argb(a,r,g,b)
+                    val r = Integer.parseInt(h.substring(0, 2), 16)
+                    val g = Integer.parseInt(h.substring(2, 4), 16)
+                    val b = Integer.parseInt(h.substring(4, 6), 16)
+                    val a = Integer.parseInt(h.substring(6, 8), 16)
+                    android.graphics.Color.argb(a, r, g, b)
                 } else {
-                    val r = Integer.parseInt(h.substring(0,2),16)
-                    val g = Integer.parseInt(h.substring(2,4),16)
-                    val b = Integer.parseInt(h.substring(4,6),16)
-                    android.graphics.Color.rgb(r,g,b)
+                    val r = Integer.parseInt(h.substring(0, 2), 16)
+                    val g = Integer.parseInt(h.substring(2, 4), 16)
+                    val b = Integer.parseInt(h.substring(4, 6), 16)
+                    android.graphics.Color.rgb(r, g, b)
                 }
                 view.setBackgroundColor(colorInt)
-            } catch (_: Exception) { /* ignore */ }
+            } catch (_: Exception) { /* ignore */
+            }
         }
 
         // Initialize swatches from current prefs
@@ -155,7 +160,8 @@ class SettingsActivity : AppCompatActivity() {
             }
 
             edit.setOnEditorActionListener { v, actionId, event ->
-                val isEnter = event != null && event.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event.action == android.view.KeyEvent.ACTION_DOWN
+                val isEnter =
+                    event != null && event.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event.action == android.view.KeyEvent.ACTION_DOWN
                 if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE || isEnter) {
                     var s = edit.text.toString().trim()
                     if (s.startsWith("#")) {
@@ -253,7 +259,10 @@ class SettingsActivity : AppCompatActivity() {
             timeColorInput.setText(timeColor)
 
             // Validate hex colors
-            if (!isValidHexColor(bgLeft) || !isValidHexColor(bgRight) || !isValidHexColor(textColor) || !isValidHexColor(timeColor)) {
+            if (!isValidHexColor(bgLeft) || !isValidHexColor(bgRight) || !isValidHexColor(textColor) || !isValidHexColor(
+                    timeColor
+                )
+            ) {
                 showMessage("Colors must be 8-character hex (RRGGBBAA format)")
                 return@setOnClickListener
             }

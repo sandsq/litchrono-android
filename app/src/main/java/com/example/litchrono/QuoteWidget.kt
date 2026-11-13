@@ -8,14 +8,17 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.Html
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.util.SizeF
 import android.widget.RemoteViews
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -42,8 +45,10 @@ class QuoteWidget : AppWidgetProvider() {
         private const val REFRESH_FEEDBACK_MS = 700L
         private const val ONE_DAY_MS = 24 * 60 * 60 * 1000L
         private const val EMPTY_CACHE_RETRY_MS = 15 * 60 * 1000L
-        private const val QUOTES_BASE_URL = "https://raw.githubusercontent.com/sandsq/time_of_day_quotes/refs/heads/main/"
+        private const val QUOTES_BASE_URL =
+            "https://raw.githubusercontent.com/sandsq/time_of_day_quotes/refs/heads/main/"
         private const val PAGE_INDEX_PREF_PREFIX = "widget_page_index_"
+        private const val EXTRA_PAGE_INDEX = "page_index"
         private const val SELECTED_QUOTE_TEXT_PREFIX = "widget_selected_quote_text_"
         private const val SELECTED_QUOTE_AUTHOR_PREFIX = "widget_selected_quote_author_"
         private const val SELECTED_QUOTE_TIME_PREFIX = "widget_selected_quote_time_"
@@ -61,6 +66,15 @@ class QuoteWidget : AppWidgetProvider() {
         context.sendBroadcast(updateIntent)
 
         // The update broadcast schedules the next refresh after it runs.
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        updateAppWidget(context, appWidgetManager, appWidgetId)
     }
 
     override fun onDisabled(context: Context) {
@@ -87,6 +101,7 @@ class QuoteWidget : AppWidgetProvider() {
                 context,
                 showRefreshFeedback = intent.getBooleanExtra(EXTRA_SHOW_REFRESH_FEEDBACK, false)
             )
+
             ACTION_PAGE_UP -> handlePageChange(context, intent, -1)
             ACTION_PAGE_DOWN -> handlePageChange(context, intent, 1)
         }
@@ -99,7 +114,7 @@ class QuoteWidget : AppWidgetProvider() {
         val prefs = context.getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
         val key = PAGE_INDEX_PREF_PREFIX + appWidgetId
         val current = prefs.getInt(key, 0)
-        val newIndex = (current + delta).coerceAtLeast(0)
+        val newIndex = intent.getIntExtra(EXTRA_PAGE_INDEX, current + delta).coerceAtLeast(0)
         prefs.edit().putInt(key, newIndex).apply()
         // Redraw widget (will apply page index)
         updateAppWidget(context, AppWidgetManager.getInstance(context), appWidgetId)
@@ -226,15 +241,81 @@ class QuoteWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int
     ) {
+        val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
+        val prefs = context.getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+        val pageIndex = prefs.getInt(PAGE_INDEX_PREF_PREFIX + appWidgetId, 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            @Suppress("DEPRECATION")
+            val sizes = options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
+                ?.filter { it.width > 0 && it.height > 0 }
+                ?.distinct()
+                ?.take(16)
+            if (!sizes.isNullOrEmpty()) {
+                val bitmapBudget = bitmapPixelBudget(context, sizes.size)
+                val layouts = sizes.associateWith { size ->
+                    createWidgetViews(context, appWidgetId, size, pageIndex, bitmapBudget)
+                }
+                appWidgetManager.updateAppWidget(appWidgetId, RemoteViews(layouts))
+                return
+            }
+        }
+
+        // Legacy launcher bounds pair MIN_WIDTH with MAX_HEIGHT in portrait, and
+        // MAX_WIDTH with MIN_HEIGHT in landscape. Never stretch one bitmap for both.
+        val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).takeIf { it > 0 } ?: 200
+        val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT).takeIf { it > 0 } ?: 110
+        val maxWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH).coerceAtLeast(minWidth)
+        val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).coerceAtLeast(minHeight)
+        val bitmapBudget = bitmapPixelBudget(context, 2)
+        val portrait =
+            createWidgetViews(
+                context,
+                appWidgetId,
+                SizeF(minWidth.toFloat(), maxHeight.toFloat()),
+                pageIndex,
+                bitmapBudget
+            )
+        val landscape =
+            createWidgetViews(
+                context,
+                appWidgetId,
+                SizeF(maxWidth.toFloat(), minHeight.toFloat()),
+                pageIndex,
+                bitmapBudget
+            )
+        appWidgetManager.updateAppWidget(appWidgetId, RemoteViews(landscape, portrait))
+    }
+
+    private fun bitmapPixelBudget(context: Context, sizeCount: Int): Int {
+        val metrics = context.resources.displayMetrics
+        // All size variants share the widget's bitmap memory allowance. Stay below
+        // the launcher's limit of 1.5 screenfuls, allowing for two images per size.
+        return (metrics.widthPixels.toLong() * metrics.heightPixels / (2 * sizeCount))
+            .coerceIn(1, 262144).toInt()
+    }
+
+    private fun createWidgetViews(
+        context: Context,
+        appWidgetId: Int,
+        size: SizeF,
+        requestedPageIndex: Int,
+        bitmapBudget: Int
+    ): RemoteViews {
         // Get current time from phone
         val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
         var currentTime = timeFormat.format(Calendar.getInstance().time)
 
         // Load settings
         val prefs = context.getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
-        val bgLeftColorHex = prefs.getString(SettingsActivity.KEY_BG_LEFT_COLOR, SettingsActivity.DEFAULT_BG_LEFT) ?: SettingsActivity.DEFAULT_BG_LEFT
-        val textColorHex = prefs.getString(SettingsActivity.KEY_TEXT_COLOR, SettingsActivity.DEFAULT_TEXT_COLOR) ?: SettingsActivity.DEFAULT_TEXT_COLOR
-        val timeColorHex = prefs.getString(SettingsActivity.KEY_TIME_COLOR, SettingsActivity.DEFAULT_TIME_COLOR) ?: SettingsActivity.DEFAULT_TIME_COLOR
+        val fontName = prefs.getString(SettingsActivity.KEY_FONT_NAME, SettingsActivity.DEFAULT_FONT)
+            ?: SettingsActivity.DEFAULT_FONT
+        val font = AppFonts.load(context, fontName)
+        val bgLeftColorHex = prefs.getString(SettingsActivity.KEY_BG_LEFT_COLOR, SettingsActivity.DEFAULT_BG_LEFT)
+            ?: SettingsActivity.DEFAULT_BG_LEFT
+        val textColorHex = prefs.getString(SettingsActivity.KEY_TEXT_COLOR, SettingsActivity.DEFAULT_TEXT_COLOR)
+            ?: SettingsActivity.DEFAULT_TEXT_COLOR
+        val timeColorHex = prefs.getString(SettingsActivity.KEY_TIME_COLOR, SettingsActivity.DEFAULT_TIME_COLOR)
+            ?: SettingsActivity.DEFAULT_TIME_COLOR
 
         // Convert hex to color integers
         val bgLeftColor = hexToColor(bgLeftColorHex)
@@ -322,53 +403,52 @@ class QuoteWidget : AppWidgetProvider() {
         val spanned = Html.fromHtml(quoteWithColors, Html.FROM_HTML_MODE_LEGACY)
 
         // Pagination: determine whether the quote fits the widget; if not, split into pages.
-        val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
-        var minWidthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-        var minHeightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
         val density = context.resources.displayMetrics.density
         val scaledDensity = context.resources.displayMetrics.scaledDensity
-        // Fallback sizes (dp) if launcher didn't provide dimensions
-        if (minWidthDp <= 0) minWidthDp = 200
-        if (minHeightDp <= 0) minHeightDp = 110
-        val widthPx = (minWidthDp * density).toInt()
-        val heightPx = (minHeightDp * density).toInt()
+        val widthPx = (size.width * density).toInt()
+        val heightPx = (size.height * density).toInt()
 
         // Layout padding/margins (dp -> px) — keep these in sync with widget_quote.xml
         val paddingTopPx = (14 * density).toInt()
-        val paddingBottomPx = (0 * density).toInt()
+        val paddingBottomPx = (8 * density).toInt()
         val paddingHorizontalPx = (14 * density).toInt()
         val authorMarginTopPx = 0 // author has no top margin in layout now
 
-        // Measure author height (use same textSize as in XML: 12sp)
+        val semitransparentTextColor = Color.argb(
+            Color.alpha(textColor) / 2,
+            Color.red(textColor),
+            Color.green(textColor),
+            Color.blue(textColor)
+        )
         val authorPaint = android.text.TextPaint().apply {
             isAntiAlias = true
             textSize = 12f * scaledDensity
+            typeface = AppFonts.load(context, fontName, Typeface.ITALIC)
+            color = semitransparentTextColor
         }
-        val fm = authorPaint.fontMetrics
-        val authorHeightPx = (fm.descent - fm.ascent).toInt()
+        val authorWidth = (widthPx - paddingHorizontalPx * 2).coerceAtLeast(1)
+        val authorLayout = WidgetTextRenderer.layout(
+            authorText, authorPaint, authorWidth,
+            alignment = android.text.Layout.Alignment.ALIGN_OPPOSITE,
+            includePad = true
+        )
 
-        // Determine widget height to use for measuring: prefer max height if launcher provides it
-        var useHeightDp = minHeightDp
-        val maxHeightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
-        if (maxHeightDp > 0) useHeightDp = maxHeightDp
-        val useHeightPx = (useHeightDp * density).toInt()
+        // Match the quote's end margin and reserve the actual wrapped attribution height.
 
-        // Available space for the quote TextView
-        val availableWidth = (widthPx - paddingHorizontalPx * 2).coerceAtLeast(50)
-        val availableHeight = (useHeightPx - paddingTopPx - paddingBottomPx - authorMarginTopPx - authorHeightPx).coerceAtLeast(20)
+        val availableWidth = (authorWidth - (6 * density).toInt()).coerceAtLeast(1)
+        val availableHeight =
+            (heightPx - paddingTopPx - paddingBottomPx - authorMarginTopPx - authorLayout.height).coerceAtLeast(1)
 
         // Prepare paint for quote text
         val quotePaint = android.text.TextPaint().apply {
             isAntiAlias = true
             textSize = 14f * scaledDensity
+            typeface = font
+            color = textColor
         }
 
-        // Build a StaticLayout for the full text to measure lines
-        val fullLayout = android.text.StaticLayout.Builder.obtain(spanned, 0, spanned.length, quotePaint, availableWidth)
-            .setAlignment(android.text.Layout.Alignment.ALIGN_NORMAL)
-            .setLineSpacing(0f, 1f)
-            .setIncludePad(false)
-            .build()
+        // Measure and draw with the same font, including the HTML's bold/color spans.
+        val fullLayout = WidgetTextRenderer.layout(spanned, quotePaint, availableWidth)
 
         val totalLines = fullLayout.lineCount
         // Determine how many lines fit in one page
@@ -380,27 +460,22 @@ class QuoteWidget : AppWidgetProvider() {
             } else break
         }
 
-//        val prefs = context.getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
-        val pageKey = PAGE_INDEX_PREF_PREFIX + appWidgetId
-        var pageIndex = prefs.getInt(pageKey, 0)
+        var pageIndex = requestedPageIndex
 
-        if (linesPerPage <= 0 || totalLines <= linesPerPage) {
+        linesPerPage = linesPerPage.coerceAtLeast(1)
+        val singlePage = totalLines <= linesPerPage
+        var pageText: CharSequence = spanned
+        if (singlePage) {
             // Fits in one page: show full text and hide paging buttons
-            views.setTextViewText(R.id.widget_quote, spanned)
             views.setViewVisibility(R.id.widget_page_up, android.view.View.GONE)
             views.setViewVisibility(R.id.widget_page_down, android.view.View.GONE)
-            // reset stored page index
-            prefs.edit().putInt(pageKey, 0).apply()
-            // Center vertically when single-page
-            views.setInt(R.id.widget_quote, "setGravity", android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START)
+
         } else {
-            // For multi-page content, top-align the quote text so pages start at the top
-            views.setInt(R.id.widget_quote, "setGravity", android.view.Gravity.TOP or android.view.Gravity.START)
             val totalPages = (totalLines + linesPerPage - 1) / linesPerPage
             // Clamp page index
             if (pageIndex >= totalPages) pageIndex = totalPages - 1
             if (pageIndex < 0) pageIndex = 0
-            prefs.edit().putInt(pageKey, pageIndex).apply()
+
 
             val startLine = pageIndex * linesPerPage
             val endLine = kotlin.math.min(startLine + linesPerPage, totalLines)
@@ -432,41 +507,65 @@ class QuoteWidget : AppWidgetProvider() {
                     }
                 }
 
-                views.setTextViewText(R.id.widget_quote, sb)
+                pageText = sb
             } else {
-                views.setTextViewText(R.id.widget_quote, rawPage)
+                pageText = rawPage
             }
 
             // show/hide arrows appropriately
-            views.setViewVisibility(R.id.widget_page_up, if (pageIndex > 0) android.view.View.VISIBLE else android.view.View.GONE)
-            views.setViewVisibility(R.id.widget_page_down, if (pageIndex < totalPages - 1) android.view.View.VISIBLE else android.view.View.GONE)
+            views.setViewVisibility(
+                R.id.widget_page_up,
+                if (pageIndex > 0) android.view.View.VISIBLE else android.view.View.GONE
+            )
+            views.setViewVisibility(
+                R.id.widget_page_down,
+                if (pageIndex < totalPages - 1) android.view.View.VISIBLE else android.view.View.GONE
+            )
 
             // Attach pending intents for paging (include widget id so handler updates correct widget)
             val upIntent = Intent(context, QuoteWidget::class.java).apply {
                 action = ACTION_PAGE_UP
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                putExtra(EXTRA_PAGE_INDEX, pageIndex - 1)
+                data = Uri.parse("litchrono://widget/$appWidgetId/page/${pageIndex - 1}")
             }
-            val upPending = PendingIntent.getBroadcast(context, appWidgetId * 10 + 2, upIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val upPending = PendingIntent.getBroadcast(
+                context,
+                appWidgetId * 10 + 2,
+                upIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
             views.setOnClickPendingIntent(R.id.widget_page_up, upPending)
 
             val downIntent = Intent(context, QuoteWidget::class.java).apply {
                 action = ACTION_PAGE_DOWN
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                putExtra(EXTRA_PAGE_INDEX, pageIndex + 1)
+                data = Uri.parse("litchrono://widget/$appWidgetId/page/${pageIndex + 1}")
             }
-            val downPending = PendingIntent.getBroadcast(context, appWidgetId * 10 + 3, downIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val downPending = PendingIntent.getBroadcast(
+                context,
+                appWidgetId * 10 + 3,
+                downIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
             views.setOnClickPendingIntent(R.id.widget_page_down, downPending)
         }
 
-        // Set author at bottom with semi-transparent text color
-        views.setTextViewText(R.id.widget_author, authorText)
-        // Create a semi-transparent version of the text color (50% opacity)
-        val semitransparentTextColor = Color.argb(
-            Color.alpha(textColor) / 2,
-            Color.red(textColor),
-            Color.green(textColor),
-            Color.blue(textColor)
+        val pageLayout = WidgetTextRenderer.layout(pageText, quotePaint, availableWidth, maxLines = linesPerPage)
+        views.setImageViewBitmap(
+            R.id.widget_quote,
+            WidgetTextRenderer.bitmap(
+                pageLayout,
+                availableHeight,
+                centerVertically = singlePage,
+                maxPixels = bitmapBudget
+            )
         )
-        views.setTextColor(R.id.widget_author, semitransparentTextColor)
+        views.setImageViewBitmap(R.id.widget_author, WidgetTextRenderer.bitmap(authorLayout, maxPixels = bitmapBudget))
+        // Keep rendered text available to screen readers and preserve the author tap target.
+        views.setContentDescription(R.id.widget_quote, pageText.toString())
+        views.setContentDescription(R.id.widget_author, authorText)
         views.setTextColor(R.id.widget_sync_button, textColor)
         views.setTextViewText(R.id.widget_sync_button, if (isRefreshFeedbackActive) "⟳" else "↻")
         // Color the page arrows to match the configured text color
@@ -504,8 +603,7 @@ class QuoteWidget : AppWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.widget_sync_button, syncPendingIntent)
 
-        // Update the widget
-        appWidgetManager.updateAppWidget(appWidgetId, views)
+        return views
     }
 
     private fun hexToColor(hexColor: String): Int {

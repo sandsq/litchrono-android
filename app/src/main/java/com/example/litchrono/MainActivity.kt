@@ -139,12 +139,19 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE)
 
         // Get custom settings
-        val fontName = prefs.getString(SettingsActivity.KEY_FONT_NAME, SettingsActivity.DEFAULT_FONT) ?: SettingsActivity.DEFAULT_FONT
-        val bgLeftColorHex = prefs.getString(SettingsActivity.KEY_BG_LEFT_COLOR, SettingsActivity.DEFAULT_BG_LEFT) ?: SettingsActivity.DEFAULT_BG_LEFT
-        val bgRightColorHex = prefs.getString(SettingsActivity.KEY_BG_RIGHT_COLOR, SettingsActivity.DEFAULT_BG_RIGHT) ?: SettingsActivity.DEFAULT_BG_RIGHT
-        val gradientAngleStr = prefs.getString(SettingsActivity.KEY_GRADIENT_ANGLE, SettingsActivity.DEFAULT_GRADIENT_ANGLE) ?: SettingsActivity.DEFAULT_GRADIENT_ANGLE
-        val textColorHex = prefs.getString(SettingsActivity.KEY_TEXT_COLOR, SettingsActivity.DEFAULT_TEXT_COLOR) ?: SettingsActivity.DEFAULT_TEXT_COLOR
-        val timeColorHex = prefs.getString(SettingsActivity.KEY_TIME_COLOR, SettingsActivity.DEFAULT_TIME_COLOR) ?: SettingsActivity.DEFAULT_TIME_COLOR
+        val fontName = prefs.getString(SettingsActivity.KEY_FONT_NAME, SettingsActivity.DEFAULT_FONT)
+            ?: SettingsActivity.DEFAULT_FONT
+        val bgLeftColorHex = prefs.getString(SettingsActivity.KEY_BG_LEFT_COLOR, SettingsActivity.DEFAULT_BG_LEFT)
+            ?: SettingsActivity.DEFAULT_BG_LEFT
+        val bgRightColorHex = prefs.getString(SettingsActivity.KEY_BG_RIGHT_COLOR, SettingsActivity.DEFAULT_BG_RIGHT)
+            ?: SettingsActivity.DEFAULT_BG_RIGHT
+        val gradientAngleStr =
+            prefs.getString(SettingsActivity.KEY_GRADIENT_ANGLE, SettingsActivity.DEFAULT_GRADIENT_ANGLE)
+                ?: SettingsActivity.DEFAULT_GRADIENT_ANGLE
+        val textColorHex = prefs.getString(SettingsActivity.KEY_TEXT_COLOR, SettingsActivity.DEFAULT_TEXT_COLOR)
+            ?: SettingsActivity.DEFAULT_TEXT_COLOR
+        val timeColorHex = prefs.getString(SettingsActivity.KEY_TIME_COLOR, SettingsActivity.DEFAULT_TIME_COLOR)
+            ?: SettingsActivity.DEFAULT_TIME_COLOR
 
         // Convert hex to color integers
         val bgLeftColor = hexToColor(bgLeftColorHex)
@@ -159,7 +166,8 @@ class MainActivity : AppCompatActivity() {
         val mainView = findViewById<android.view.ViewGroup>(R.id.main)
 
         // Use ViewTreeObserver to ensure layout is measured
-        mainView.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+        mainView.viewTreeObserver.addOnGlobalLayoutListener(object :
+            android.view.ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 mainView.viewTreeObserver.removeOnGlobalLayoutListener(this)
 
@@ -187,14 +195,9 @@ class MainActivity : AppCompatActivity() {
         // quoteTextView.setTextColor(textColor)
         cacheInfoTextView.setTextColor(textColor)
 
-        // Apply font (using default typeface since custom fonts require files)
-        try {
-            val typeface = android.graphics.Typeface.create(fontName, android.graphics.Typeface.NORMAL)
-            timeTextView.typeface = typeface
-            quoteTextView.typeface = typeface
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        val typeface = AppFonts.load(this, fontName)
+        timeTextView.typeface = typeface
+        quoteTextView.typeface = typeface
     }
 
     private fun hexToColor(hexColor: String): Int {
@@ -266,7 +269,10 @@ class MainActivity : AppCompatActivity() {
         val call = service.getQuotes()
 
         call.enqueue(object : Callback<Map<String, List<Quote>>> {
-            override fun onResponse(call: Call<Map<String, List<Quote>>>, response: Response<Map<String, List<Quote>>>) {
+            override fun onResponse(
+                call: Call<Map<String, List<Quote>>>,
+                response: Response<Map<String, List<Quote>>>
+            ) {
                 if (response.isSuccessful && response.body() != null) {
                     allQuotes = response.body()!!
                     // Save to local storage
@@ -328,8 +334,10 @@ class MainActivity : AppCompatActivity() {
             val randomQuote = quotesForTime[Random.nextInt(quotesForTime.size)]
             // Wrap <b> tags with <u> and <font color> tags for underline and color
             val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE)
-            val timeColorHex = prefs.getString(SettingsActivity.KEY_TIME_COLOR, SettingsActivity.DEFAULT_TIME_COLOR) ?: SettingsActivity.DEFAULT_TIME_COLOR
-            val textColorHex = prefs.getString(SettingsActivity.KEY_TEXT_COLOR, SettingsActivity.DEFAULT_TEXT_COLOR) ?: SettingsActivity.DEFAULT_TEXT_COLOR
+            val timeColorHex = prefs.getString(SettingsActivity.KEY_TIME_COLOR, SettingsActivity.DEFAULT_TIME_COLOR)
+                ?: SettingsActivity.DEFAULT_TIME_COLOR
+            val textColorHex = prefs.getString(SettingsActivity.KEY_TEXT_COLOR, SettingsActivity.DEFAULT_TEXT_COLOR)
+                ?: SettingsActivity.DEFAULT_TEXT_COLOR
 
             // Extract just RGB part (first 6 chars) for HTML font tags (HTML doesn't support alpha in font color)
             val boldColorRGB = "#" + timeColorHex.substring(0, 6)
@@ -359,7 +367,8 @@ class MainActivity : AppCompatActivity() {
             val quoteFinalColor = sb.toString()
 
             // Convert HTML tags to formatted text and add attribution
-            val displayText = "$quoteFinalColor<br><br><font color='$mainColorRGB'>${randomQuote.title} - ${randomQuote.author}</font>"
+            val displayText =
+                "$quoteFinalColor<br><br><font color='$mainColorRGB'>${randomQuote.title} - ${randomQuote.author}</font>"
             val spanned = Html.fromHtml(displayText, Html.FROM_HTML_MODE_LEGACY)
 
             quoteTextView.text = spanned
